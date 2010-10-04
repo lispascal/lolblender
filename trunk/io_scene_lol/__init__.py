@@ -2,6 +2,9 @@ import bpy
 from bpy.props import *
 from io_utils import ImportHelper
 from sys import stderr
+from os import path
+
+import lolMesh, lolSkeleton
 bl_addon_info = {
     'name': 'Import a League of Legends Skeleton file (.skl)',
     'author': 'Zac Berkowitz',
@@ -45,3 +48,39 @@ def unregister():
 
 if __name__ == '__main__':
     register()
+
+
+def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE=None):
+
+    SKN_FILEPATH=path.join(MODEL_DIR, SKN_FILE)
+    SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
+    DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)
+
+    sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
+    lolSkeleton.buildSKL(boneDict)
+
+    sknHeader, materials, indices, vertices = lolMesh.importSKN(SKN_FILEPATH)
+    lolMesh.buildMesh(SKN_FILEPATH)
+
+    meshObj = bpy.data.objects['Mesh']
+    armObj = bpy.data.objects['Armature']
+
+    lolMesh.addDefaultWeights(boneDict, vertices, armObj, meshObj)
+    
+    armObj.selected = False
+    if DDS_FILE:
+        bpy.ops.object.mode_set(mode='EDIT')
+        img = bpy.data.images.new(DDS_FILE)
+        tex = bpy.data.textures.new('texture', type='IMAGE')
+        mat = bpy.data.materials.new('material')
+
+        img.filepath=DDS_FILEPATH
+        img.source = 'FILE'
+
+        meshObj.material_slots[0].material = mat
+        mat.texture_slots.create(0)
+        mat.texture_slots[0].texture = tex
+        mat.texture_slots[0].texture_coords = 'UV'
+        tex.image = img
+        bpy.ops.object.mode_set(mode='OBJECT')
+
