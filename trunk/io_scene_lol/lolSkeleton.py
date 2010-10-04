@@ -1,4 +1,4 @@
-import UserDict
+from collections import UserDict
 import struct
 #import bpy
 #from bpy.props import *
@@ -68,8 +68,8 @@ class sklBone(UserDict):
         """Reads skeleton bone object from a binary file fid"""
 
         fields = struct.unpack(self.__format__, sklFile.read(self.__size__))
-        self.name = bytes.decode(fields[0])
-        self.parent, self.scale = fields[1:3]
+        self['name'] = bytes.decode(fields[0])
+        self['parent'], self['scale'] = fields[1:3]
         
         #Strip null \x00's from the name
 

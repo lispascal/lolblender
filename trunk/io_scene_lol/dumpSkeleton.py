@@ -5,23 +5,23 @@ from lolSkeleton import sklHeader, sklBone, importSKL
 def prettyPrint(header, boneDict, returnStr = True):
     
     headerStr = \
-    "Filetype:%s\nnumObjects:%d\nskeletonHash:%d\nnumElements:%d\n\n" % (header.fileType, 
-            header.numObjects, header.skeletonHash, header.numElements)
+    "Filetype:%s\nnumObjects:%d\nskeletonHash:%d\nnumElements:%d\n\n" % (header['fileType'], 
+            header['numObjects'], header['skeletonHash'], header['numElements'])
     boneStr = ""
     for id, bone in boneDict.items():
-        if bone.parent != -1:
-            parentName = boneDict[bone.parent].name
+        if bone['parent'] != -1:
+            parentName = boneDict[bone['parent']]['name']
         else:
             parentName = "None"
-        boneStr += "id:%d\t%s\tparent id:%d\t(%s)\n" %(id, bone.name,
-                bone.parent, parentName)
-        boneStr += "scale:  %f\n" %(bone.scale,)
-        boneStr += "matrix:\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone.matrix[0][0],
-                bone.matrix[0][1], bone.matrix[0][2], bone.matrix[0][3])
-        boneStr += "\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone.matrix[1][0],
-                bone.matrix[1][1],bone.matrix[1][2],bone.matrix[1][3])
-        boneStr += "\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone.matrix[2][0],
-                bone.matrix[2][1], bone.matrix[2][2], bone.matrix[2][3])
+        boneStr += "id:%d\t%s\tparent id:%d\t(%s)\n" %(id, bone['name'],
+                bone['parent'], parentName)
+        boneStr += "scale:  %f\n" %(bone['scale'],)
+        boneStr += "matrix:\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone['matrix'][0][0],
+                bone['matrix'][0][1], bone['matrix'][0][2], bone['matrix'][0][3])
+        boneStr += "\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone['matrix'][1][0],
+                bone['matrix'][1][1],bone['matrix'][1][2],bone['matrix'][1][3])
+        boneStr += "\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone['matrix'][2][0],
+                bone['matrix'][2][1], bone['matrix'][2][2], bone['matrix'][2][3])
         boneStr += "\n"
 
     if returnStr == True:
@@ -30,17 +30,17 @@ def prettyPrint(header, boneDict, returnStr = True):
         print(headerStr+boneStr)
 
 def csvPrint(header, boneDict, returnStr = True):
-    headerStr='%s,%d,%d,%d\n' % (header.fileType, header.numObjects,
-            header.skeletonHash, header.numElements)
+    headerStr='%s,%d,%d,%d\n' % (header['fileType'], header['numObjects'],
+            header['skeletonHash'], header['numElements'])
     boneStr = ""
     for id, bone in boneDict.items():
-        boneStr+="%d,%s,%d,%e," %(id, bone.name, bone.parent, bone.scale)
-        boneStr+="%e,%e,%e,%e," %(bone.matrix[0][0], bone.matrix[0][1],
-                bone.matrix[0][2], bone.matrix[0][3])
-        boneStr+="%e,%e,%e,%e," %(bone.matrix[1][0], bone.matrix[1][1],
-                bone.matrix[1][2], bone.matrix[1][3])
-        boneStr+="%e,%e,%e,%e\n" %(bone.matrix[2][0], bone.matrix[2][1],
-                bone.matrix[2][2], bone.matrix[2][3])
+        boneStr+="%d,%s,%d,%e," %(id, bone['name'], bone['parent'], bone['scale'])
+        boneStr+="%e,%e,%e,%e," %(bone['matrix'][0][0], bone['matrix'][0][1],
+                bone['matrix'][0][2], bone['matrix'][0][3])
+        boneStr+="%e,%e,%e,%e," %(bone['matrix'][1][0], bone['matrix'][1][1],
+                bone['matrix'][1][2], bone['matrix'][1][3])
+        boneStr+="%e,%e,%e,%e\n" %(bone['matrix'][2][0], bone['matrix'][2][1],
+                bone['matrix'][2][2], bone['matrix'][2][3])
 
     if returnStr == True:
         return headerStr+boneStr
