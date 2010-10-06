@@ -2,9 +2,10 @@ import bpy
 from bpy.props import *
 from io_utils import ImportHelper
 from sys import stderr
-from os import path
+from os import path, listdir
 
 import lolMesh, lolSkeleton
+
 bl_addon_info = {
     'name': 'Import a League of Legends Skeleton file (.skl)',
     'author': 'Zac Berkowitz',
@@ -35,9 +36,77 @@ class bl_importSKL(bpy.types.Operator, ImportHelper):
         lolSkeleton.buildSKL(boneDict)
         return{'FINISHED'}
 
+class ImportLoL_popup_dialog(bpy.types.Operator):
+    bl_idname = 'import.lol_data'
+    bl_label = 'Import LoL Data'
+
+    sklEnum = [('a','a','a'),('b','b','b')]
+    sknEnum = []
+    texEnum = []
+
+    DIRECTORY = StringProperty(name='Model Directory', 
+            description='''Root directory for the model containing mesh, skeleton,
+            and texture files''', default = '', subtype='DIR_PATH')
+    LOAD_WEIGHTS = BoolProperty(name='Load Weights', description='''Import mesh
+    deformation weights from model file''', default=False)
+
+    SKN_FILES = EnumProperty(name='Model Files', 
+            description='Available Model Files', items=sknEnum)
+    SKL_FILES = EnumProperty(name='Skeleton Files', 
+            description='Available Skeleton Files', items=sklEnum)
+    TEX_FILES = EnumProperty(name='Texture Files', 
+            description='Available Texture Files', items=texEnum)
+
+    def updateFiles(self, directory):
+        #print(self.sklEnum, self.sknEnum, self.texEnum)
+        dirContents = listdir(directory)
+        self.sklEnum = []
+        self.sknEnum = []
+        self.texEnum = []
+        for file in dirContents:
+            name, ext = path.splitext(file)
+            if ext.lower() == '.skn':
+                self.sknEnum.append((file,file,file))
+            elif ext.lower() == '.skl':
+                self.sklEnum.append((file,file,file))
+            elif ext.lower() == '.dds':
+                self.texEnum.append((file,file,file))
+        self.DIRECTORY = directory
+        bpy.props.RemoveProperty('SKN_FILES')
+        SKN_FILES = EnumProperty(name='Model Files', 
+            description='Available Model Files', items=sknEnum)
+
+
+        
+    def draw(self, context):
+        layout = self.layout
+        fileParams = bpy.context.space_data.params
+        if fileParams.directory != self.DIRECTORY:
+            print('Old:  %s\nNew:  %s' %(self.DIRECTORY,fileParams.directory))
+            self.updateFiles(fileParams.directory)
+
+        box = layout.box()
+        box.prop(self.properties, 'DIRECTORY')
+        box.prop(self.properties, 'SKN_FILES')
+        box.prop(self.properties, 'SKL_FILES')
+        box.prop(self.properties, 'TEX_FILES')
+
+        #box.operator('BUTTONS_OT_file_browse')
+        
+
+    def invoke(self, context, event):
+        print(event.type, event.value)
+
+        wm = bpy.context.window_manager
+        wm.add_fileselect(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        return {'FINISHED'}
+
 
 def menu_func_import(self,context):
-    self.layout.operator(bl_importSKL.bl_idname, text='LoL SKeleton (.skl)')
+    self.layout.operator(ImportLoL_popup_dialog.bl_idname, text='LoL Data')
 
 def register():
     bpy.types.INFO_MT_file_import.append(menu_func_import)
@@ -50,29 +119,33 @@ if __name__ == '__main__':
     register()
 
 
-def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE=None):
+def import_char(MODEL_DIR="", SKN_FILE=None, SKL_FILE=None, DDS_FILE=None):
 
-    SKN_FILEPATH=path.join(MODEL_DIR, SKN_FILE)
-    SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
-    DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)
 
-    sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
-    lolSkeleton.buildSKL(boneDict)
+    if SKL_FILE:
+        SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
+        sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
+        lolSkeleton.buildSKL(boneDict)
+        armObj = bpy.data.objects['Armature']
+        armObj.name ='lolArmature'
 
-    sknHeader, materials, indices, vertices = lolMesh.importSKN(SKN_FILEPATH)
-    lolMesh.buildMesh(SKN_FILEPATH)
+    if SKN_FILE:
+        SKN_FILEPATH=path.join(MODEL_DIR, SKN_FILE)
+        sknHeader, materials, indices, vertices = lolMesh.importSKN(SKN_FILEPATH)
+        lolMesh.buildMesh(SKN_FILEPATH)
+        meshObj = bpy.data.objects['Mesh']
+        meshObj.name = 'lolMesh'
+        
+    if SKN_FILE and SKL_FILE:
+        lolMesh.addDefaultWeights(boneDict, vertices, armObj, meshObj)
 
-    meshObj = bpy.data.objects['Mesh']
-    armObj = bpy.data.objects['Armature']
-
-    lolMesh.addDefaultWeights(boneDict, vertices, armObj, meshObj)
-    
-    armObj.selected = False
     if DDS_FILE:
+        DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)
+
         bpy.ops.object.mode_set(mode='EDIT')
         img = bpy.data.images.new(DDS_FILE)
-        tex = bpy.data.textures.new('texture', type='IMAGE')
-        mat = bpy.data.materials.new('material')
+        tex = bpy.data.textures.new('lolTexture', type='IMAGE')
+        mat = bpy.data.materials.new('lolMaterial')
 
         img.filepath=DDS_FILEPATH
         img.source = 'FILE'
@@ -83,4 +156,3 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE=None):
         mat.texture_slots[0].texture_coords = 'UV'
         tex.image = img
         bpy.ops.object.mode_set(mode='OBJECT')
-
