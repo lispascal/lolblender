@@ -155,4 +155,7 @@ def import_char(MODEL_DIR="", SKN_FILE=None, SKL_FILE=None, DDS_FILE=None):
         mat.texture_slots[0].texture = tex
         mat.texture_slots[0].texture_coords = 'UV'
         tex.image = img
-        bpy.ops.object.mode_set(mode='OBJECT')
+
+        meshObj.data.uv_textures[0].data[0].image = img
+        meshObj.data.uv_textures[0].data[0].use_image = True
+        meshObj.data.uv_textures[0].data[0].blend_type = 'ALPHA'
