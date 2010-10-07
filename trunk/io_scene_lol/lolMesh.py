@@ -148,7 +148,6 @@ def buildMesh(filepath):
     from io_scene_obj import import_obj
     import bpy
     (header, materials, indices, vertices) = importSKN(filepath)
-    print(materials)
     if header['numMaterials'] > 0 and materials[0]['matIndex'] == 2:
         print('ERROR:  Skins with matIndex = 2 are currently unreadable.  Exiting')
         return {'FINISHED'}
