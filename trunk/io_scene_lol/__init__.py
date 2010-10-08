@@ -105,3 +105,12 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         meshObj.data.uv_textures[0].data[0].blend_type = 'ALPHA'
         meshObj.data.update()
         bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def export_char(outputFile, meshObj = None):
+    import bpy
+
+    if meshObj == None:
+        meshObj = bpy.data.objects['lolMesh']
+
+    lolMesh.exportSKN(outputFile, meshObj)
