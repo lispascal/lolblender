@@ -18,6 +18,18 @@
 # <pep8 compliant>
 __all__ = ['lolMesh', 'lolSkeleton']
 
+bl_addon_info = {
+    'name': 'Import a League of Legends Skeleton file (.skl)',
+    'author': 'Zac Berkowitz',
+    'version': '0.2',
+    'blender': (2,5,3),
+    'location': 'File > Import',
+    'category': 'Import/Export',
+    }
+__bpydoc__="""
+Import/Export a League of Legends character model, including
+skeleton and textures.
+"""
 
 def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         CLEAR_SCENE=True, APPLY_WEIGHTS=True, APPLY_TEXTURE=True):
@@ -61,6 +73,10 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         lolMesh.buildMesh(SKN_FILEPATH)
         meshObj = bpy.data.objects['Mesh']
         meshObj.name = 'lolMesh'
+        #Presently io_scene_obj.load() does not import vertex normals, 
+        #so do it ourselves
+        for id, vtx in enumerate(meshObj.data.vertices):
+            vtx.normal = vertices[id]['normal']
         
     if SKN_FILE and SKL_FILE and APPLY_WEIGHTS:
         lolMesh.addDefaultWeights(boneDict, vertices, armObj, meshObj)

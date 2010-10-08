@@ -63,18 +63,26 @@ class sknMaterial(UserDict):
         (self['startVertex'], self['numVertices']) = fields[2:4]
         (self['startIndex'], self['numIndices']) = fields[4:6]
 
+    def toFile(self, sknFid):
+        buf = struct.pack(self.__format__, self['matIndex'], self['name'],
+                self['startVertex'], self['numVertices'],
+                self['startIndex'], self['numIndices'])
+        sknFid.write(buf)
+
 
 class sknVertex(UserDict):
     def __init__(self):
         UserDict.__init__(self)
         self.__format__ = '<3f4b4f3f2f'
         self.__size__ = struct.calcsize(self.__format__)
+        self.reset()
 
-        self['position'] = []
-        self['boneIndex'] = None
-        self['weights'] = []
-        self['normal'] = []
-        self['texcoords'] = []
+    def reset(self):
+        self['position'] = [0.0, 0.0, 0.0]
+        self['boneIndex'] = [0, 0, 0, 0]
+        self['weights'] = [0.0, 0.0, 0.0, 0.0]
+        self['normal'] = [0.0, 0.0, 0.0]
+        self['texcoords'] = [0.0, 0.0]
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
@@ -86,6 +94,14 @@ class sknVertex(UserDict):
         self['normal'] = fields[11:14]
         self['texcoords'] = fields[14:16]
 
+    def toFile(self, sknFid):
+        buf = struct.pack(self.__format__,
+                self['position'][0], self['position'][1], self['position'][2],
+                self['boneIndex'][0],self['boneIndex'][1],self['boneIndex'][2],self['boneIndex'][3],
+                self['weights'][0],self['weights'][1],self['weights'][2],self['weights'][3],
+                self['normal'][0],self['normal'][1],self['normal'][2],
+                self['texcoords'][0],self['texcoords'][1])
+        sknFid.write(buf)
 
 def importSKN(filepath):
     sknFid = open(filepath, 'rb')
@@ -184,6 +200,8 @@ def buildMesh(filepath):
         SPLIT_OBJECTS = False, SPLIT_GROUPS = False, ROTATE_X90 = False,
         IMAGE_SEARCH=False, POLYGROUPS = False)
 
+
+
 def addDefaultWeights(boneDict, sknVertices, armatureObj, meshObj):
 
     '''Add an armature modifier to the mesh'''
@@ -216,7 +234,81 @@ def addDefaultWeights(boneDict, sknVertices, armatureObj, meshObj):
                     'ADD')
 
 
+def exportSKN(meshObj, outFile):
+    #Go into object mode & select only the mesh
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    meshObj.select = True
 
+
+    numFaces = len(meshObj.data.faces)
+    
+    #Build vertex index list and dictionary of vertex-uv pairs
+    indices = []
+    vtxUvs = {}
+    for idx, face in enumerate(meshObj.data.faces):
+        vertices = face.vertices[0:]
+        indices.extend(vertices)
+        #The V coordinate need to be flipped back - it was flipped on importing.
+        uvs = meshObj.data.uv_textures.active.data[idx]
+
+        vtxUvs[vertices[0]] = [uvs.uv_raw[0], 1-uvs.uv_raw[1]]
+        vtxUvs[vertices[1]] = [uvs.uv_raw[2] ,1-uvs.uv_raw[3]]
+        vtxUvs[vertices[2]] = [uvs.uv_raw[4], 1-uvs.uv_raw[5]]
+
+    numIndices = len(indices)
+    numVertices = len(meshObj.data.vertices)
+
+    #Write header block
+    header = sknHeader()
+    header['magic'] = 1122867
+    header['numMaterials'] = 0
+    header['numObjects'] = 1
+
+    #create output file 
+    sknFid = open(outFile, 'wb')
+    
+    #write header
+    header.toFile(sknFid)
+
+    #We're not writing a materials block, so write the numIndices and
+    #numVertices next
+    buf = struct.pack('<2i', numIndices, numVertices)
+    sknFid.write(buf)
+
+    #write face indices
+    for idx in indices:
+        buf = struct.pack('<h', idx)
+        sknFid.write(buf)
+
+    #Write vertices
+    sknVtx = sknVertex()
+    for idx, vtx in enumerate(meshObj.data.vertices):
+        sknVtx.reset()
+        #get position
+        sknVtx['position'][0] = vtx.co[0]
+        sknVtx['position'][1] = vtx.co[1]
+        sknVtx['position'][2] = vtx.co[2]
+        
+        sknVtx['normal'][0] = vtx.normal[0]
+        sknVtx['normal'][1] = vtx.normal[1]
+        sknVtx['normal'][2] = vtx.normal[2]
+
+        #get weights
+        for idx, group in enumerate(vtx.groups):
+            sknVtx['boneIndex'][idx] = group.group
+            sknVtx['weights'][idx] = group.weight
+
+        #Get UV's
+        sknVtx['texcoords'][0] = vtxUvs[idx][0]
+        sknVtx['texcoords'][1] = vtxUvs[idx][1]
+
+        #writeout the vertex
+        sknVtx.toFile(sknFid)
+
+    #Close the output file
+    sknFid.close()
+         
 if __name__ == '__main__':
     (header, materials, numIndices, 
             numVertices, indices, vertices) = importSKN(testFile)
