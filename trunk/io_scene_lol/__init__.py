@@ -30,7 +30,8 @@ __bpydoc__="""
 Import/Export a League of Legends character model, including
 skeleton and textures.
 """
-
+__testfiles__ = ['/var/tmp/downloads/lol/Wolfman', 'Wolfman.skn',
+'Wolfman.skl', 'Wolfman.dds']
 def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         CLEAR_SCENE=True, APPLY_WEIGHTS=True, APPLY_TEXTURE=True):
     '''Import a LoL Character
@@ -82,6 +83,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         lolMesh.addDefaultWeights(boneDict, vertices, armObj, meshObj)
 
     if DDS_FILE and APPLY_TEXTURE:
+        pass
         DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
@@ -108,9 +110,16 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
 
 
 def export_char(outputFile, meshObj = None):
+    '''Exports a mesh as a LoL .skn file.
+
+    outputFile:  Name of file to save the mesh as
+    meshObj:  Blender mesh object to export.  If
+        none is given we will look for one named
+        'lolMesh'
+    '''
     import bpy
 
     if meshObj == None:
         meshObj = bpy.data.objects['lolMesh']
 
-    lolMesh.exportSKN(outputFile, meshObj)
+    lolMesh.exportSKN(meshObj, outputFile)

@@ -235,11 +235,11 @@ def addDefaultWeights(boneDict, sknVertices, armatureObj, meshObj):
 
 
 def exportSKN(meshObj, outFile):
+    import bpy
     #Go into object mode & select only the mesh
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
     meshObj.select = True
-
 
     numFaces = len(meshObj.data.faces)
     
@@ -295,9 +295,36 @@ def exportSKN(meshObj, outFile):
         sknVtx['normal'][2] = vtx.normal[2]
 
         #get weights
-        for idx, group in enumerate(vtx.groups):
-            sknVtx['boneIndex'][idx] = group.group
-            sknVtx['weights'][idx] = group.weight
+        #The SKN format only allows 4 bone weights,
+        #so we'll choose the largest 4 & renormalize
+        #if needed
+
+        if len(vtx.groups) > 4:
+            tmpList = []
+            #Get all the bone/weight pairs
+            for group in vtx.groups:
+                tmpList.append((group.group, group.weight))
+
+            #Sort by weight in decending order
+            tmpList = sorted(tmpList, key=lambda t: t[1], reverse=True)
+            
+            #Find sum of four largets weights.
+            tmpSum = 0
+            for k in range(4):
+                tmpSum += tmpList[k][1]
+            
+            #Spread remaining weight proportionally across bones
+            remWeight = 1-tmpSum
+            for k in range(4):
+                sknVtx['boneIndex'][k] = tmpList[k][0]
+                sknVtx['weights'][k] = tmpList[k][1] + tmpList[k][1]*remWeight/tmpSum
+
+        else:
+            #If we have 4 or fewer bone/weight associations,
+            #just add them as is
+            for idx, group in enumerate(vtx.groups):
+                sknVtx['boneIndex'][idx] = group.group
+                sknVtx['weights'][idx] = group.weight
 
         #Get UV's
         sknVtx['texcoords'][0] = vtxUvs[idx][0]
