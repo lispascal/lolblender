@@ -137,7 +137,7 @@ def importSKN(filepath):
     vertices = []
     for k in range(numIndices):
         buf = sknFid.read(struct.calcsize('<h'))
-        indices.append(struct.unpack('<h', buf))
+        indices.append(struct.unpack('<h', buf)[0])
 
     for k in range(numVertices):
         vertices.append(sknVertex())
@@ -200,8 +200,76 @@ def buildMesh(filepath):
         SPLIT_OBJECTS = False, SPLIT_GROUPS = False, ROTATE_X90 = False,
         IMAGE_SEARCH=False, POLYGROUPS = False)
 
+def buildMeshNative(filepath):
+    import bpy
+    from os import path
+    (header, materials, indices, vertices) = importSKN(filepath)
+    
+    if header['numMaterials'] > 0 and materials[0]['matIndex'] == 2:
+        print('ERROR:  Skins with matIndex = 2 are currently unreadable.  Exiting')
+        return{'CANCELLED'} 
+
+    numIndices = len(indices)
+    numVertices = len(vertices)
+    #Create face groups
+    faceList = []
+    for k in range(0, numIndices, 3):
+        #faceList.append( [indices[k], indices[k+1], indices[k+2]] )
+        faceList.append( indices[k:k+3] )
+
+    vtxList = []
+    normList = []
+    uvList = []
+    for vtx in vertices:
+        #vtxList.append( [vtx['position'][0],vtx['position'][1],vtx['position'][2]] )
+        vtxList.append( vtx['position'][:] )
+        normList.extend( vtx['normal'][:] )
+        uvList.append( [vtx['texcoords'][0], 1-vtx['texcoords'][1]] )
+
+    #Build the mesh
+    #Get current scene
+    scene = bpy.context.scene
+    #Create mesh
+    #Use the filename base as the meshname.  i.e. path/to/Akali.skn -> Akali
+    meshName = path.split(filepath)[-1]
+    meshName = path.splitext(meshName)[0]
+    mesh = bpy.data.meshes.new(meshName)
+    mesh.from_pydata(vtxList, [], faceList)
+    mesh.update()
+
+    bpy.ops.object.select_all(action='DESELECT')
+    
+    #Create object from mesh
+    obj = bpy.data.objects.new('lolMesh', mesh)
+
+    #Link object to the current scene
+    scene.objects.link(obj)
 
 
+    #Create UV texture coords
+    texList = []
+    uvtexName = 'lolUVtex'
+    uvtex = obj.data.uv_textures.new(uvtexName)
+    for k, face in enumerate(obj.data.faces):
+        vtxIdx = face.vertices[:]
+        bl_tface = uvtex.data[k]
+        bl_tface.uv1 = uvList[vtxIdx[0]]
+        bl_tface.uv2 = uvList[vtxIdx[1]]
+        bl_tface.uv3 = uvList[vtxIdx[2]]
+
+    #Set normals
+    #Needs to be done after the UV unwrapping 
+    obj.data.vertices.foreach_set('normal', normList) 
+
+    #Create material
+    materialName = 'lolMaterial'
+    #material = bpy.data.materials.ne(materialName)
+     
+    #set active
+    obj.select = True
+
+    return {'FINISHED'}
+    
 def addDefaultWeights(boneDict, sknVertices, armatureObj, meshObj):
 
     '''Add an armature modifier to the mesh'''
@@ -250,7 +318,7 @@ def exportSKN(meshObj, outFile):
         vertices = face.vertices[0:]
         indices.extend(vertices)
         #The V coordinate need to be flipped back - it was flipped on importing.
-        uvs = meshObj.data.uv_textures.active.data[idx]
+        uvs = meshObj.data.uv_textures['lolUVtex'].data[idx]
 
         vtxUvs[vertices[0]] = [uvs.uv_raw[0], 1-uvs.uv_raw[1]]
         vtxUvs[vertices[1]] = [uvs.uv_raw[2] ,1-uvs.uv_raw[3]]
@@ -322,9 +390,9 @@ def exportSKN(meshObj, outFile):
         else:
             #If we have 4 or fewer bone/weight associations,
             #just add them as is
-            for idx, group in enumerate(vtx.groups):
-                sknVtx['boneIndex'][idx] = group.group
-                sknVtx['weights'][idx] = group.weight
+            for vtxIdx, group in enumerate(vtx.groups):
+                sknVtx['boneIndex'][vtxIdx] = group.group
+                sknVtx['weights'][vtxIdx] = group.weight
 
         #Get UV's
         sknVtx['texcoords'][0] = vtxUvs[idx][0]

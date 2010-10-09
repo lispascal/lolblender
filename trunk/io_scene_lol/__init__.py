@@ -32,6 +32,9 @@ skeleton and textures.
 """
 __testfiles__ = ['/var/tmp/downloads/lol/Wolfman', 'Wolfman.skn',
 'Wolfman.skl', 'Wolfman.dds']
+
+__testlaptop__ =['/Users/zac/Desktop/LoL Modeling/Characters/Wolfman',
+'Wolfman.skn', 'Wolfman.skl', 'Wolfman.dds']
 def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         CLEAR_SCENE=True, APPLY_WEIGHTS=True, APPLY_TEXTURE=True):
     '''Import a LoL Character
@@ -71,13 +74,13 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
     if SKN_FILE:
         SKN_FILEPATH=path.join(MODEL_DIR, SKN_FILE)
         sknHeader, materials, indices, vertices = lolMesh.importSKN(SKN_FILEPATH)
-        lolMesh.buildMesh(SKN_FILEPATH)
-        meshObj = bpy.data.objects['Mesh']
-        meshObj.name = 'lolMesh'
+        lolMesh.buildMeshNative(SKN_FILEPATH)
+        meshObj = bpy.data.objects['lolMesh']
+        #meshObj.name = 'lolMesh'
         #Presently io_scene_obj.load() does not import vertex normals, 
         #so do it ourselves
-        for id, vtx in enumerate(meshObj.data.vertices):
-            vtx.normal = vertices[id]['normal']
+        #for id, vtx in enumerate(meshObj.data.vertices):
+        #    vtx.normal = vertices[id]['normal']
         
     if SKN_FILE and SKL_FILE and APPLY_WEIGHTS:
         lolMesh.addDefaultWeights(boneDict, vertices, armObj, meshObj)
