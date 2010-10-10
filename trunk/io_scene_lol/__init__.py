@@ -19,22 +19,19 @@
 __all__ = ['lolMesh', 'lolSkeleton']
 
 bl_addon_info = {
-    'name': 'Import a League of Legends Skeleton file (.skl)',
+    'name': 'Import League of Legends Character files (.skn;.skl)',
     'author': 'Zac Berkowitz',
-    'version': '0.2',
+    'version': (0,2),
     'blender': (2,5,3),
     'location': 'File > Import',
     'category': 'Import/Export',
+    'wiki_url': 'http://code.google.com/p/lolblender',
+    'tracker_url':'http://code.google.com/p/lolblender/issues/list'
     }
 __bpydoc__="""
 Import/Export a League of Legends character model, including
 skeleton and textures.
 """
-__testfiles__ = ['/var/tmp/downloads/lol/Wolfman', 'Wolfman.skn',
-'Wolfman.skl', 'Wolfman.dds']
-
-__testlaptop__ =['/Users/zac/Desktop/LoL Modeling/Characters/Wolfman',
-'Wolfman.skn', 'Wolfman.skl', 'Wolfman.dds']
 def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         CLEAR_SCENE=True, APPLY_WEIGHTS=True, APPLY_TEXTURE=True):
     '''Import a LoL Character
@@ -66,6 +63,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
 
     if SKL_FILE:
         SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
+        print(SKL_FILEPATH)
         sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
         lolSkeleton.buildSKL(boneDict)
         armObj = bpy.data.objects['Armature']
@@ -126,3 +124,67 @@ def export_char(outputFile, meshObj = None):
         meshObj = bpy.data.objects['lolMesh']
 
     lolMesh.exportSKN(meshObj, outputFile)
+        
+import bpy
+from bpy import props
+from io_utils import ImportHelper
+from os import path
+
+class IMPORT_OT_lol(bpy.types.Operator, ImportHelper):
+    bl_label="Import"
+    bl_idname="import.lol"
+
+    SKN_FILE = props.StringProperty(name='Mesh', description='Model .skn file')
+    SKL_FILE = props.StringProperty(name='Skeleton', description='Model .skl file')
+    DDS_FILE = props.StringProperty(name='Texture', description='Model .dds file')    
+    MODEL_DIR = props.StringProperty()
+    CLEAR_SCENE = props.BoolProperty(name='ClearScene', description='Clear current scene before importing?', default=True)
+    APPLY_WEIGHTS = props.BoolProperty(name='LoadWeights', description='Load default bone weights from .skn file', default=True)
+    
+       
+    def draw(self, context):
+        layout = self.layout
+        fileProps = context.space_data.params
+        self.MODEL_DIR = fileProps.directory
+        
+        selectedFileExt = path.splitext(fileProps.filename)[-1].lower()
+        if selectedFileExt == '.skn':
+            self.SKN_FILE = fileProps.filename
+        elif selectedFileExt == '.skl':
+            self.SKL_FILE = fileProps.filename
+        elif selectedFileExt == '.dds':
+            self.DDS_FILE = fileProps.filename
+            
+        box = layout.box()
+        box.prop(self, 'SKN_FILE')
+        box.prop(self, 'SKL_FILE')
+        box.prop(self, 'DDS_FILE')
+        box.prop(self, 'CLEAR_SCENE', text='Clear scene before importing')
+        box.prop(self, 'APPLY_WEIGHTS', text='Load mesh weights')
+        
+    def execute(self, context):
+        print(self.MODEL_DIR)
+        print(self.SKN_FILE)
+        
+        import_char(MODEL_DIR=self.MODEL_DIR,
+                    SKN_FILE=self.SKN_FILE,
+                    SKL_FILE=self.SKL_FILE,
+                    DDS_FILE=self.DDS_FILE,
+                    CLEAR_SCENE=self.CLEAR_SCENE,
+                    APPLY_WEIGHTS=self.APPLY_WEIGHTS)
+               
+        return {'FINISHED'}
+    
+    
+def menu_func_import(self, context):
+    self.layout.operator(IMPORT_OT_lol.bl_idname, text="League of Legends (.skn;.skl)")
+
+def register():
+    bpy.types.INFO_MT_file_import.append(menu_func_import)
+
+def unregister():
+    bpy.types.INFO_MT_file_import.remove(menu_func_import)
+
+
+if __name__ == "__main__":
+    register()
