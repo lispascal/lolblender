@@ -25,6 +25,7 @@ bl_addon_info = {
     'blender': (2,5,3),
     'location': 'File > Import',
     'category': 'Import/Export',
+    'api': 31878,
     'wiki_url': 'http://code.google.com/p/lolblender',
     'tracker_url':'http://code.google.com/p/lolblender/issues/list'
     }
@@ -84,30 +85,33 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         lolMesh.addDefaultWeights(boneDict, vertices, armObj, meshObj)
 
     if DDS_FILE and APPLY_TEXTURE:
-        pass
         DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
-        bpy.data.objects['lolMesh'].select = True
-        bpy.ops.object.mode_set(mode='EDIT')
-        img = bpy.data.images.new(DDS_FILE)
-        tex = bpy.data.textures.new('lolTexture', type='IMAGE')
-        mat = bpy.data.materials.new('lolMaterial')
+        #bpy.data.objects['lolMesh'].select = True
+        #bpy.ops.object.mode_set(mode='EDIT')
 
+        img = bpy.data.images.new(DDS_FILE)
         img.filepath=DDS_FILEPATH
         img.source = 'FILE'
 
-        meshObj.material_slots[0].material = mat
-        mat.texture_slots.create(0)
-        mat.texture_slots[0].texture = tex
-        mat.texture_slots[0].texture_coords = 'UV'
+        tex = bpy.data.textures.new('lolTexture', type='IMAGE')
         tex.image = img
+        mat = bpy.data.materials.new(name=tex.name)
+
+
+        mtex = mat.texture_slots.add()
+        mtex.texture = tex
+        mtex.texture_coords = 'UV'
+        mtex.use_map_color_diffuse = True
+
+        meshObj.data.materials.append(mat)
 
         meshObj.data.uv_textures[0].data[0].image = img
         meshObj.data.uv_textures[0].data[0].use_image = True
         meshObj.data.uv_textures[0].data[0].blend_type = 'ALPHA'
-        meshObj.data.update()
-        bpy.ops.object.mode_set(mode='OBJECT')
+        #meshObj.data.update()
+        #bpy.ops.object.mode_set(mode='OBJECT')
 
 
 def export_char(outputFile, meshObj = None):
