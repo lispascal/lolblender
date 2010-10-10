@@ -28,6 +28,7 @@ bl_addon_info = {
     'wiki_url': 'http://code.google.com/p/lolblender',
     'tracker_url':'http://code.google.com/p/lolblender/issues/list'
     }
+
 __bpydoc__="""
 Import/Export a League of Legends character model, including
 skeleton and textures.
@@ -35,7 +36,6 @@ skeleton and textures.
 def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         CLEAR_SCENE=True, APPLY_WEIGHTS=True, APPLY_TEXTURE=True):
     '''Import a LoL Character
-
     MODEL_DIR:  Base directory of the model you wish to import.
     SKN_FILE:  .skn mesh file for the character
     SKL_FILE:  .skl skeleton file for the character
@@ -124,14 +124,15 @@ def export_char(outputFile, meshObj = None):
         meshObj = bpy.data.objects['lolMesh']
 
     lolMesh.exportSKN(meshObj, outputFile)
-        
+
 import bpy
 from bpy import props
-from io_utils import ImportHelper
+from io_utils import ImportHelper, ExportHelper
+
 from os import path
 
 class IMPORT_OT_lol(bpy.types.Operator, ImportHelper):
-    bl_label="Import"
+    bl_label="Import LoL"
     bl_idname="import.lol"
 
     SKN_FILE = props.StringProperty(name='Mesh', description='Model .skn file')
@@ -154,13 +155,12 @@ class IMPORT_OT_lol(bpy.types.Operator, ImportHelper):
             self.SKL_FILE = fileProps.filename
         elif selectedFileExt == '.dds':
             self.DDS_FILE = fileProps.filename
-            
         box = layout.box()
-        box.prop(self, 'SKN_FILE')
-        box.prop(self, 'SKL_FILE')
-        box.prop(self, 'DDS_FILE')
-        box.prop(self, 'CLEAR_SCENE', text='Clear scene before importing')
-        box.prop(self, 'APPLY_WEIGHTS', text='Load mesh weights')
+        box.prop(self.properties, 'SKN_FILE')
+        box.prop(self.properties, 'SKL_FILE')
+        box.prop(self.properties, 'DDS_FILE')
+        box.prop(self.properties, 'CLEAR_SCENE', text='Clear scene before importing')
+        box.prop(self.properties, 'APPLY_WEIGHTS', text='Load mesh weights')
         
     def execute(self, context):
         print(self.MODEL_DIR)
@@ -174,16 +174,33 @@ class IMPORT_OT_lol(bpy.types.Operator, ImportHelper):
                     APPLY_WEIGHTS=self.APPLY_WEIGHTS)
                
         return {'FINISHED'}
-    
+
+class EXPORT_OT_lol(bpy.types.Operator, ExportHelper):
+    '''Export a mesh as a League of Legends .skn file'''
+
+    bl_idname="export.lol"
+    bl_label = "Export .skn"
+
+    filename_ext = '.skn'
+
+    def execute(self, context):
+        export_char(self.properties.filepath)
+        return {'FINISHED'}
+        
     
 def menu_func_import(self, context):
     self.layout.operator(IMPORT_OT_lol.bl_idname, text="League of Legends (.skn;.skl)")
 
+def menu_func_export(self, context):
+    self.layout.operator(EXPORT_OT_lol.bl_idname, text="League of Legends (.skn)")
+
 def register():
     bpy.types.INFO_MT_file_import.append(menu_func_import)
+    bpy.types.INFO_MT_file_export.append(menu_func_export)
 
 def unregister():
     bpy.types.INFO_MT_file_import.remove(menu_func_import)
+    bpy.types.INFO_MT_file_export.remove(menu_func_export)
 
 
 if __name__ == "__main__":
