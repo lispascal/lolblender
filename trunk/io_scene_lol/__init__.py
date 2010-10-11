@@ -21,7 +21,7 @@ __all__ = ['lolMesh', 'lolSkeleton']
 bl_addon_info = {
     'name': 'Import League of Legends Character files (.skn;.skl)',
     'author': 'Zac Berkowitz',
-    'version': (0,2),
+    'version': (0,3),
     'blender': (2,5,3),
     'location': 'File > Import',
     'category': 'Import/Export',
@@ -125,7 +125,19 @@ def export_char(outputFile, meshObj = None):
     import bpy
 
     if meshObj == None:
-        meshObj = bpy.data.objects['lolMesh']
+        #If no mesh object was supplied, try the active selection
+        if bpy.context.object.type =='MESH':
+            meshObj = bpy.context.object
+        #If the selected object wasn't a mesh, try finding one named 'lolMesh'
+        else:
+            try:
+                meshObj = bpy.data.objects['lolMesh']
+            except KeyError:
+                errStr = '''
+                No mesh object supplied, no mesh selected, and no mesh
+named 'lolMesh'.  Nothing to export.'''
+                print(errStr)
+                raise KeyError
 
     lolMesh.exportSKN(meshObj, outputFile)
 
