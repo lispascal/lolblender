@@ -125,6 +125,7 @@ def buildSKL(boneDict):
     bpy.ops.object.armature_add(location=(0,0,0), enter_editmode=True)
     obj = bpy.context.active_object
     arm = obj.data
+    from mathutils import Matrix
 
     bones = arm.edit_bones
     #Remove the default bone
@@ -138,9 +139,11 @@ def buildSKL(boneDict):
 
         boneAlignToAxis= (bone['matrix'][0][2], bone['matrix'][1][2],
                 bone['matrix'][2][2])
+        #boneAlignToAxis = (0,1,0)
 
 
         newBone = arm.edit_bones.new(boneName)
+        
         newBone.tail[:] = boneTail
         
         #If this is a root bone set the y offset to 0 for the head element
@@ -153,11 +156,77 @@ def buildSKL(boneDict):
             boneParentName = boneDict[boneParentID]['name']
             newBone.parent = arm.edit_bones[boneParentName]
             newBone.use_connect = True
+            #newBone.head = arm.edit_bones[boneParentName].tail
+            newBone.use_hinge = False
+            newBone.use_inherit_scale = False
 
 
         newBone.align_roll(boneAlignToAxis)
-        newBone.lock = True
+        newBone.lock = False
+        #newBone.use_local_location = False
 
+        '''
+        #Edit the 4x4 transformation matrix directly.  Matrix
+        #is stored in column major order:
+        #
+        # [3x3 rotation matrix | 3x1 translation: tail location  ]
+        # [--------------------|-------------------------------- ]
+        # [1x3 0's             | 1x1 'scale' scalar (1.0)        ]
+        tMatrix = [ [0.0]*4, [0.0]*4, [0.0]*4, [0.0]*4 ]
+
+        #3x3 rotation
+        #tMatrix[0][:3] = [bone['matrix'][0][0], bone['matrix'][1][0],
+            #bone['matrix'][2][0]]
+        #tMatrix[1][:3] = [bone['matrix'][0][1], bone['matrix'][1][1],
+            #bone['matrix'][2][1]]
+        #tMatrix[2][:3] = [bone['matrix'][0][0], bone['matrix'][1][0],
+            #bone['matrix'][2][0]]
+        tMatrix[0][:3] = [bone['matrix'][0][0], bone['matrix'][0][1],
+            bone['matrix'][0][2]]
+        tMatrix[1][:3] = [bone['matrix'][1][0], bone['matrix'][1][1],
+            bone['matrix'][1][2]]
+        tMatrix[2][:3] = [bone['matrix'][2][0], bone['matrix'][2][1],
+            bone['matrix'][2][2]]
+
+        #3x1 tail location
+        tMatrix[0][3] = bone['matrix'][0][3]
+        tMatrix[1][3] = bone['matrix'][1][3]
+        tMatrix[2][3] = bone['matrix'][2][3]
+
+        #1x1 scalar
+        tMatrix[3][3] = 1
+
+        #Set as bone transform
+        newBone.transform(Matrix(tMatrix[0], tMatrix[1], tMatrix[2], tMatrix[3]))
+        #newBone.tail = boneTail
+        #print(boneName) 
+        #print(tMatrix[0])
+        #print(tMatrix[1])
+        #print(tMatrix[2])
+        #print(tMatrix[3])
+        #print(Matrix(tMatrix[0],tMatrix[1],tMatrix[2],tMatrix[3]))
+        #If this is a root bone set the y offset to 0 for the head element
+        if boneParentID == -1:
+            newBone.head[:] = (boneTail[0],0,boneTail[2])
+            newBone.tail = boneTail
+
+        if boneParentID > -1:
+            boneParentName = boneDict[boneParentID]['name']
+            newBone.parent = arm.edit_bones[boneParentName]
+            newBone.use_connect = True
+
+            parentBone = arm.bones[boneParentName]
+            parentTail = parentBone.tail
+            newBone.length = (Vector(boneTail)-parentTail).magnitude
+            #newBone.head = arm.edit_bones[boneParentName].tail
+            #newBone.use_hinge = True 
+            newBone.use_inherit_scale = False
+
+
+        #newBone.align_roll(boneAlignToAxis)
+        newBone.lock = False
+        #newBone.use_local_location = False
+    '''    
     bpy.ops.object.mode_set(mode='OBJECT')
 
 

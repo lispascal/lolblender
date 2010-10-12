@@ -17,8 +17,8 @@
 # ##### END GPL LICENSE BLOCK #####
 
 # <pep8 compliant>
-import lolMesh, lolSkeleton
-def prettyPrintSkl(filename, start=0, end=-1, returnStr=True, **options):
+import lolMesh, lolSkeleton, lolAnimation
+def prettyPrintSkl(filename, start=0, stop=-1, returnStr=True, **options):
     
     header, boneDict = lolSkeleton.importSKL(filename)
     headerStr = ""
@@ -28,8 +28,8 @@ def prettyPrintSkl(filename, start=0, end=-1, returnStr=True, **options):
                 header['numObjects'], header['skeletonHash'], header['numElements'])
     boneStr = ""
     if(options['PRINT_BONES']):
-        if end == -1:
-            end = len(boneDict)
+        if stop == -1:
+            stop = len(boneDict)
         for id in range(start,stop):
             bone = boneDict[id]
             if bone['parent'] != -1:
@@ -52,7 +52,7 @@ def prettyPrintSkl(filename, start=0, end=-1, returnStr=True, **options):
     else:
         print(headerStr+boneStr)
 
-def prettyPrintSkn(filename, start=0, end=-1, returnStr = True, **options):
+def prettyPrintSkn(filename, start=0, stop=-1, returnStr = True, **options):
     header, materials, indices, vertices = lolMesh.importSKN(filename)
     headerStr = ""
     if(options['PRINT_HEADER']):
@@ -93,7 +93,42 @@ def prettyPrintSkn(filename, start=0, end=-1, returnStr = True, **options):
     else:
         print(headerStr+materialStr+indexStr+vertexStr)
 
-def cvsPrintSkl(filename, start=0, end=-1, returnStr=True, **options):
+def prettyPrintAnm(filename, start=0, stop=-1, returnStr = True, **options):
+    header, animation= lolAnimation.importANM(filename)
+    headerStr = ""
+    if(options['PRINT_HEADER']):
+        headerStr += "filetype:%s\nThree:%d\nmagic:%d\n" % (header['filetype'], 
+            header['three'], header['magic'])
+        headerStr += "numBones:%d\nnumFrames:%d\nfps:%d\n\n" % (header['numBones'],
+                header['numFrames'],header['fps'])
+
+
+    anmStr = ""
+    if(options['PRINT_FRAMES']):
+        if stop == -1:
+            stop = header['numBones']
+
+        for boneIdx, name in enumerate(animation):
+            
+            if (boneIdx< start) or (boneIdx>=stop):
+                continue
+            bone = animation[name] 
+            boneType = animation[name]['boneType']
+            #for f in range(header['numFrames']):
+            for f in range(1):
+                anmStr += \
+                        "%d\ttype:%d\tname:%s\t\t"%(f, boneType, name)
+                anmStr += \
+                        "\tpos:(%f,%f,%f)"%(bone['pos'][f][0],bone['pos'][f][1],bone['pos'][f][2])
+                anmStr +=\
+                        "\tquat:(%f,%f,%f,%f)\n"%(bone['quat'][f][0],bone['quat'][f][1],bone['quat'][f][2],
+                                bone['quat'][f][3])
+    if returnStr == True:
+        return headerStr+anmStr
+    else:
+        print(headerStr+anmStr)
+
+def cvsPrintSkl(filename, start=0, stop=-1, returnStr=True, **options):
     
     header, boneDict = lolSkeleton.importSKL(filename)
     headerStr = ""
@@ -131,7 +166,7 @@ def cvsPrintSkl(filename, start=0, end=-1, returnStr=True, **options):
     else:
         print(headerStr+boneStr)
 
-def cvsPrintSkn(filename, start=0, end=-1, returnStr = True, **options):
+def cvsPrintSkn(filename, start=0, stop=-1, returnStr = True, **options):
     header, materials, indices, vertices = lolMesh.importSKN(filename)
     headerStr = ""
     if(options['PRINT_HEADER']):
@@ -200,6 +235,8 @@ if __name__ == '__main__':
             default=False, action="store_true")
     parser.add_option("","--bones", dest="PRINT_BONES", help="print bones",
             default=False, action="store_true")
+    parser.add_option("","--frames", dest="PRINT_FRAMES", help="print frames",
+            default=False, action="store_true")
 
     (options, args) = parser.parse_args()
 
@@ -215,13 +252,15 @@ if __name__ == '__main__':
             printFunc = cvsPrintSkn
         else:
             printFunc = prettyPrintSkn
+    elif fileExt.lower() == '.anm':
+        printFunc = prettyPrintAnm
     else:
-        print('%s file format not recognized.  Enter a .skl or .skn file' %(fileExt,))
+        print('%s file format not recognized.  Enter a .skl, .skn, or .anm file' %(fileExt,))
 
     
     if any([options.PRINT_HEADER, options.PRINT_INDICES,
             options.PRINT_VERTICES, options.PRINT_MATERIALS,
-            options.PRINT_BONES]):
+            options.PRINT_BONES, options.PRINT_FRAMES]):
         pass
     else:
         options.PRINT_HEADER = True
@@ -229,8 +268,10 @@ if __name__ == '__main__':
         options.PRINT_VERTICES = True
         options.PRINT_MATERIALS = True
         options.PRINT_BONES = True
+        options.PRINT_FRAMES = True
 
     indexRange = options.range.split(':')
+    
     if len(indexRange) == 1 and indexRange[0] != '':
         start = int(indexRange[0])
         stop = start + 1
