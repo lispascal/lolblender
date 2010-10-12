@@ -184,7 +184,7 @@ def buildANM(filename=None, armObj=None):
         #Change to frame # f
         bpy.ops.anim.change_frame(frame=f)
         k=0
-        for boneLevel in boneLevelHeirary[:4]:
+        for boneLevel in boneLevelHeirary[:2]:
 
             for bone in boneLevel:
                 boneName = bone.name
@@ -210,7 +210,9 @@ def buildANM(filename=None, armObj=None):
                 newQ.angle = animation[boneName]['quat'][f][0]# * 3.14159/180.0
                 '''
                 w,x,y,z = animation[boneName]['quat'][f][:]
-                newQ = Quaternion((w,x,y,z))
+                frameQ = Quaternion((w,x,y,z))
+                restQ = restPose[boneName]['quat']
+                newQ = restQ.difference(frameQ)
                 #newQ   = Quaternion(animation[boneName]['quat'][f]) #- \
                 #        restPose[boneName]['quat']
                 if boneName == 'ROOT':
@@ -252,8 +254,8 @@ def buildANM(filename=None, armObj=None):
                 pBone.rotation_quaternion = newQ
                 pBone.keyframe_insert("rotation_quaternion")
 
-                pBone.location = newLoc
-                pBone.keyframe_insert("location")
+                #pBone.location = newLoc
+                #pBone.keyframe_insert("location")
                 print(boneName)
 
     bpy.ops.object.mode_set(mode='POSE', toggle=True)

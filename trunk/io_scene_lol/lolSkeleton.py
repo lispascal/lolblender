@@ -139,6 +139,7 @@ def buildSKL(boneDict):
 
         boneAlignToAxis= (bone['matrix'][0][2], bone['matrix'][1][2],
                 bone['matrix'][2][2])
+        #boneAlignToAxis = (0,1,0)
 
 
         newBone = arm.edit_bones.new(boneName)
