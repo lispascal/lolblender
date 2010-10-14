@@ -19,6 +19,7 @@
 from collections import UserDict
 import struct
 testFile = '/var/tmp/downloads/lol/Wolfman/Wolfman.skn'
+    
 class sknHeader(UserDict):
 
     def __init__(self):
@@ -264,7 +265,7 @@ def buildMeshNative(filepath):
     #Create material
     materialName = 'lolMaterial'
     #material = bpy.data.materials.ne(materialName)
-     
+    mesh.update() 
     #set active
     obj.select = True
 
@@ -403,7 +404,128 @@ def exportSKN(meshObj, outFile):
 
     #Close the output file
     sknFid.close()
-         
+
+def importSCO(filename):
+    '''SCO files contains meshes in plain text'''
+    fid = open(filename, 'r')
+    objects = []
+    inObject = False
+    
+    #Loop until we reach the end of the file
+    while True:
+        
+        line = fid.readline()
+        #Check if we've reached the file end
+        if line == '':
+            break
+        else:
+            #Remove all leading/trailing whitespace & convert to lower case
+            line = line.strip().lower()
+
+        #Start checking against keywords
+    
+        #Are we just starting an object?
+        if line == '[objectbegin]' and not inObject:
+            inObject = True
+            continue
+
+        #Are we ending an object?
+        if line == '[objectend]' and inObject:
+            inObject = False
+
+            #add tupple to object list
+            objects.append( (name, centralpoint, vtxList, faceList, uvDict, materialList) )
+            continue
+
+        #If we're in an object, start parsing
+        #Headers appear space-deliminted
+        #'Name= [name]', 'Verts= [verts]', etc.
+        if inObject:
+            if line.startswith('name='):
+                name=line.split(' ')[-1]
+            elif line.startswith('centralpoint='):
+                centralpoint = line.split(' ')[-1]
+            elif line.startswith('pivotpoint='):
+                pivotpoint = line.split(' ')[-1]
+            
+            elif line.startswith('verts='):
+                verts = line.split(' ')[-1]
+                vtxList = []
+                for k in range(int(verts)):
+                    vtxPos = fid.readline().strip().split(' ')
+                    vtxPos = [float(x) for x in vtxPos]
+                    vtxList.append(vtxPos)
+
+            elif line.startswith('faces='):
+                faces = line.split(' ')[-1]
+                faceList = []
+                materialList = []
+                uvDict = {}
+                for k in range(int(faces)):
+                    fields = fid.readline().strip().split()
+                    nVtx = int(fields[0])
+                    
+                    vIds = [int(x) for x in fields[1:4]]
+                    mat = fields[4]
+                    uvs = [ [] ]*3
+                    uvs[0] = [float(x) for x in fields[5:7]]
+                    uvs[1] = [float(x) for x in fields[7:9]]
+                    uvs[2] = [float(x) for x in fields[9:11]]
+
+                    faceList.append(vIds)
+                    if len(mat) > 16:
+                        mat = mat[:16]
+                    if mat not in materialList:
+                        materialList.append(mat)
+                    #materialList.append(mat)
+
+                    for k,j in enumerate(vIds):
+                        uvDict[j]=uvs[k]
+
+                    print(uvs)
+
+    fid.close()
+    return objects
+
+def buildSCO(filename):
+    import bpy
+    objects = importSCO(filename)
+
+    for object in objects:
+        name = object[0]
+        vtxList = object[2]
+        faceList = object[3]
+        uvDict = object[4]
+        materialList = object[5]
+
+        #get scene
+        scene=bpy.context.scene
+        mesh = bpy.data.meshes.new(name)
+        mesh.from_pydata(vtxList, [], faceList)
+        mesh.update()
+
+        meshObj = bpy.data.objects.new(name, mesh)
+
+        scene.objects.link(meshObj)
+
+        print(materialList)
+        for mat in materialList:
+            print(mat)
+            uvtex = meshObj.data.uv_textures.new(mat)
+            for k, face in enumerate(meshObj.data.faces):
+                vtxIds = face.vertices[:]
+                bl_tface = uvtex.data[k]
+                bl_tface.uv1[0] = uvDict[vtxIds[0]][0]
+                bl_tface.uv1[1] = 1-uvDict[vtxIds[0]][1]
+
+                bl_tface.uv2[0] = uvDict[vtxIds[1]][0]
+                bl_tface.uv2[1] = 1-uvDict[vtxIds[1]][1]
+
+                bl_tface.uv3[0] = uvDict[vtxIds[2]][0]
+                bl_tface.uv3[1] = 1-uvDict[vtxIds[2]][1]
+
+        mesh.update()
+        
 if __name__ == '__main__':
     (header, materials, numIndices, 
             numVertices, indices, vertices) = importSKN(testFile)
