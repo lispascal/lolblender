@@ -64,9 +64,9 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
 
     if SKL_FILE:
         SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
-        print(SKL_FILEPATH)
-        sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
-        lolSkeleton.buildSKL(boneDict)
+        #sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
+        sklHeader, boneList = lolSkeleton.importSKL2(SKL_FILEPATH)
+        lolSkeleton.buildSKL2(SKL_FILEPATH)
         armObj = bpy.data.objects['Armature']
         armObj.name ='lolArmature'
 
@@ -82,7 +82,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         #    vtx.normal = vertices[id]['normal']
         
     if SKN_FILE and SKL_FILE and APPLY_WEIGHTS:
-        lolMesh.addDefaultWeights(boneDict, vertices, armObj, meshObj)
+        lolMesh.addDefaultWeights2(boneList, vertices, armObj, meshObj)
 
     if DDS_FILE and APPLY_TEXTURE:
         DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)

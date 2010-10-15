@@ -271,6 +271,36 @@ def buildMeshNative(filepath):
 
     return {'FINISHED'}
     
+def addDefaultWeights2(boneList, sknVertices, armatureObj, meshObj):
+
+    '''Add an armature modifier to the mesh'''
+    meshObj.modifiers.new(name='Armature', type='ARMATURE')
+    meshObj.modifiers['Armature'].object = armatureObj
+
+    '''
+    Blender bone deformations create vertex groups with names corresponding to
+    the intended bone.  I.E. the bone 'L_Hand' deforms vertices in the group
+    'L_Hand'.
+
+    We will create a vertex group for each bone using their index number
+    '''
+
+    for id, bone in enumerate(boneList):
+        meshObj.vertex_groups.new(name=bone.name)
+
+    '''
+    Loop over vertices by index & add weights
+    '''
+    for vtx_idx in range(len(sknVertices)):
+        vtx = sknVertices[vtx_idx]
+        for k in range(4):
+            boneId = vtx['boneIndex'][k]
+            weight = vtx['weights'][k]
+
+            meshObj.vertex_groups.assign([vtx_idx],
+                    meshObj.vertex_groups[boneId],
+                    weight,
+                    'ADD')
 def addDefaultWeights(boneDict, sknVertices, armatureObj, meshObj):
 
     '''Add an armature modifier to the mesh'''
