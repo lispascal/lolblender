@@ -83,7 +83,6 @@ class sklBone2():
         fields = struct.unpack(self.__format__, sklFile.read(self.__size__))
         self.name = bytes.decode(fields[0])
         self.parent, self.scale = fields[1:3]
-        
         #Strip null \x00's from the name
 
         self.matrix[0] = list( fields[3:7] )
@@ -198,11 +197,14 @@ def buildSKL2(filename):
     #import the bones
     M = Matrix()
     V = Vector()
+    boneDict = {}
     for boneID, bone in enumerate(boneList):
-        boneName = bone.name
+
+        boneName = (bone.name).rstrip('\x00')
+        boneDict[boneName] = boneID
         boneHead = (bone.matrix[0][3], bone.matrix[1][3], bone.matrix[2][3])
         boneParentID = bone.parent
-        print(bone.scale)
+        
 
         boneAlignToAxis= (bone.matrix[0][2], bone.matrix[1][2],
                 bone.matrix[2][2])
@@ -234,16 +236,35 @@ def buildSKL2(filename):
 
             #Don't yet know what to do here
             else:
-                newBone.length = 1.0/bone.scale
+                pass
+                #newBone.length = 1.0/bone.scale
                 
             #newBone.parent = arm.edit_bones[boneParentName]
             #newBone.use_connect = True
 
     #Catch bones with no children
+    #print(boneDict)
     for bone in arm.edit_bones:
         if len(bone.children) == 0:
-            bone.length=10
 
+            boneId = boneDict[bone.name]
+            boneMatrix = boneList[boneId].matrix
+            length = 1.0/boneList[boneId].scale
+            bone.length = length
+            
+            bone.align_orientation(bone.parent)
+            #Get the y axis of the bone normal
+            #boneNormal = [boneMatrix[0][2],
+            #              boneMatrix[1][2], boneMatrix[2][2]]
+                     
+            #bone.length=1.0/bone.scale
+            
+            #bone.tail[0] = bone.head[0] + boneNormal[0]*length
+            #bone.tail[1] = bone.head[1] + boneNormal[1]*length
+            #bone.tail[2] = bone.head[2] + boneNormal[2]*length
+
+            
+            #print(bone.name, length, boneNormal)
         #newBone.align_roll(boneAlignToAxis)
         #newBone.lock = True
     bpy.ops.object.mode_set(mode='OBJECT')
