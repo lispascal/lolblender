@@ -18,34 +18,34 @@
 
 # <pep8 compliant>
 import lolMesh, lolSkeleton
-def prettyPrintSkl(filename, start=0, end=-1, returnStr=True, **options):
+def prettyPrintSkl(filename, start=0, stop=-1, returnStr=True, **options):
     
-    header, boneDict = lolSkeleton.importSKL(filename)
+    header, boneList = lolSkeleton.importSKL(filename)
     headerStr = ""
     if(options['PRINT_HEADER']): 
         headerStr += \
-        "Filetype:%s\nnumObjects:%d\nskeletonHash:%d\nnumElements:%d\n\n" % (header['fileType'], 
-                header['numObjects'], header['skeletonHash'], header['numElements'])
+        "Filetype:%s\nnumObjects:%d\nskeletonHash:%d\nnumElements:%d\n\n" % (header.fileType, 
+                header.numObjects, header.skeletonHash, header.numElements)
     boneStr = ""
     if(options['PRINT_BONES']):
-        if end == -1:
-            end = len(boneDict)
+        if stop == -1:
+            stop = len(boneList)
         for id in range(start,stop):
-            bone = boneDict[id]
-            if bone['parent'] != -1:
-                parentName = boneDict[bone['parent']]['name']
+            bone = boneList[id]
+            if bone.parent != -1:
+                parentName = boneList[bone.parent].name
             else:
                 parentName = "None"
            
-            boneStr += "%d\t%s\tparent id:%d\t(%s)\n" %(id, bone['name'],
-                    bone['parent'], parentName)
-            boneStr += "\tscale:  %f\n" %(bone['scale'],)
-            boneStr += "\tmatrix:\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone['matrix'][0][0],
-                    bone['matrix'][0][1], bone['matrix'][0][2], bone['matrix'][0][3])
-            boneStr += "\t\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone['matrix'][1][0],
-                    bone['matrix'][1][1],bone['matrix'][1][2],bone['matrix'][1][3])
-            boneStr += "\t\t %7.4f  %7.4f  %7.4f  %7.4f\n\n" %(bone['matrix'][2][0],
-                    bone['matrix'][2][1], bone['matrix'][2][2], bone['matrix'][2][3])
+            boneStr += "%d\t%s\tparent id:%d\t(%s)\n" %(id, bone.name,
+                    bone.parent, parentName)
+            boneStr += "\tscale:  %f\n" %(bone.scale,)
+            boneStr += "\tmatrix:\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone.matrix[0][0],
+                    bone.matrix[0][1], bone.matrix[0][2], bone.matrix[0][3])
+            boneStr += "\t\t %7.4f  %7.4f  %7.4f  %7.4f\n" %(bone.matrix[1][0],
+                    bone.matrix[1][1],bone.matrix[1][2],bone.matrix[1][3])
+            boneStr += "\t\t %7.4f  %7.4f  %7.4f  %7.4f\n\n" %(bone.matrix[2][0],
+                    bone.matrix[2][1], bone.matrix[2][2], bone.matrix[2][3])
 
     if returnStr == True:
         return headerStr+boneStr
@@ -95,13 +95,13 @@ def prettyPrintSkn(filename, start=0, end=-1, returnStr = True, **options):
 
 def cvsPrintSkl(filename, start=0, end=-1, returnStr=True, **options):
     
-    header, boneDict = lolSkeleton.importSKL(filename)
+    header, boneList = lolSkeleton.importSKL(filename)
     headerStr = ""
     if(options['PRINT_HEADER']): 
         headerStr += "#fileType, numObjects, skeletonHash, numElements\n"
         headerStr += \
-        "%s,%d,%d,%d\n" % (header['fileType'], 
-                header['numObjects'], header['skeletonHash'], header['numElements'])
+        "%s,%d,%d,%d\n" % (header.fileType, 
+                header.numObjects, header.skeletonHash, header.numElements)
     boneStr = ""
     if(options['PRINT_BONES']):
         boneStr+="#boneID, name, parentID, scale,"
@@ -109,22 +109,22 @@ def cvsPrintSkl(filename, start=0, end=-1, returnStr=True, **options):
         boneStr+="matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3],"
         boneStr+="matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]\n"
         if end == -1:
-            end = len(boneDict)
+            end = len(boneList)
         for id in range(start,stop):
-            bone = boneDict[id]
-            if bone['parent'] != -1:
-                parentName = boneDict[bone['parent']]['name']
+            bone = boneList[id]
+            if bone.parent != -1:
+                parentName = boneList[bone.parent].name
             else:
                 parentName = "None"
            
-            boneStr += "%d,%s,%d," %(id, bone['name'],bone['parent'])
-            boneStr += "%f," %(bone['scale'],)
-            boneStr += "%e,%e,%e,%e," %(bone['matrix'][0][0],
-                    bone['matrix'][0][1], bone['matrix'][0][2], bone['matrix'][0][3])
-            boneStr += "%e,%e,%e,%e," %(bone['matrix'][1][0],
-                    bone['matrix'][1][1],bone['matrix'][1][2],bone['matrix'][1][3])
-            boneStr += "%e,%e,%e,%e\n" %(bone['matrix'][2][0],
-                    bone['matrix'][2][1], bone['matrix'][2][2], bone['matrix'][2][3])
+            boneStr += "%d,%s,%d," %(id, bone.name,bone.parent)
+            boneStr += "%f," %(bone.scale,)
+            boneStr += "%e,%e,%e,%e," %(bone.matrix[0][0],
+                    bone.matrix[0][1], bone.matrix[0][2], bone.matrix[0][3])
+            boneStr += "%e,%e,%e,%e," %(bone.matrix[1][0],
+                    bone.matrix[1][1],bone.matrix[1][2],bone.matrix[1][3])
+            boneStr += "%e,%e,%e,%e\n" %(bone.matrix[2][0],
+                    bone.matrix[2][1], bone.matrix[2][2], bone.matrix[2][3])
 
     if returnStr == True:
         return headerStr+boneStr

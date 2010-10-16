@@ -143,10 +143,12 @@ def buildANM(filename=None, armObj=None):
     from time import sleep
     armObj = bpy.data.objects['lolArmature']
     filename =\
-    '/Users/zac/Desktop/LoL Modeling/Characters/Wolfman/Animations/Wolfman_attack1.anm'
-    #'/var/tmp/downloads/lol/Characters/Garen/Animations/Garen_attack1.anm'
+    '/var/tmp/downloads/lol/Characters/Wolfman/Animations/Wolfman_Attack1.anm'
+    #'/Users/zac/Desktop/LoL Modeling/Characters/Wolfman/Animations/Wolfman_attack1.anm'
     header, animation = importANM(filename)
-
+    #bpy.ops.object.mode_set(mode='EDIT')
+    #bpy.ops.object.select_all()
+    #bpy.ops.armature.parent_clear('DISCONNECT')
     #Generate keyframes
     #for f in range(header['numFrames']):
         
@@ -185,11 +187,12 @@ def buildANM(filename=None, armObj=None):
         #Change to frame # f
         bpy.ops.anim.change_frame(frame=f)
         k=0
-        for boneLevel in boneLevelHeirary:#[:2]:
+        for boneLevel in boneLevelHeirary:#[:1]:
 
             for bone in boneLevel:
                 boneName = bone.name
                 pBone = armObj.pose.bones[boneName]
+                aBone = armObj.data.bones[boneName]
 
                 #Check if this bone has animation data for it, skip if it
                 #doesn't
@@ -199,8 +202,8 @@ def buildANM(filename=None, armObj=None):
                     continue
                 
                 #Get new location
-                newLoc = Vector(animation[boneName]['pos'][f]) - \
-                    restPose[boneName]['pos']
+                newLoc = Vector(animation[boneName]['pos'][f])# - \
+                    #restPose[boneName]['pos']
                 
                 #Get new Quaternion
                 '''
@@ -210,10 +213,14 @@ def buildANM(filename=None, armObj=None):
                 newQ.z = animation[boneName]['quat'][f][3]
                 newQ.angle = animation[boneName]['quat'][f][0]# * 3.14159/180.0
                 '''
-                x,y,z,w = animation[boneName]['quat'][f][:]
+                w,x,y,z = animation[boneName]['quat'][f][:]
                 frameQ = Quaternion((w,x,y,z))
-                oldQ = pBone.rotation_quaternion
-                newQ = oldQ.difference(frameQ)
+                #oldQ = pBone.rotation_quaternion
+                oldQ = aBone.matrix.to_quat()
+                print(oldQ)
+                #newQ = oldQ.inverse() * frameQ*oldQ
+                newQ = frameQ
+
                 #newQ   = Quaternion(animation[boneName]['quat'][f]) #- \
                 #        restPose[boneName]['quat']
                 if boneName == 'ROOT':
@@ -255,8 +262,8 @@ def buildANM(filename=None, armObj=None):
                 pBone.rotation_quaternion = newQ
                 pBone.keyframe_insert("rotation_quaternion")
 
-                #pBone.location = newLoc
-                #pBone.keyframe_insert("location")
+                pBone.location = newLoc
+                pBone.keyframe_insert("location")
                 print(boneName)
 
     bpy.ops.object.mode_set(mode='POSE', toggle=True)

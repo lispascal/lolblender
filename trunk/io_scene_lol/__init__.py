@@ -65,16 +65,23 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
     if SKL_FILE:
         SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
         #sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
-        sklHeader, boneList = lolSkeleton.importSKL2(SKL_FILEPATH)
+        sklHeader, boneList = lolSkeleton.importSKL(SKL_FILEPATH)
         lolSkeleton.buildSKL2(SKL_FILEPATH)
         armObj = bpy.data.objects['Armature']
         armObj.name ='lolArmature'
+        armObj.data.draw_type = 'STICK'
+        armObj.data.show_axes = True
+        armObj.show_x_ray = True
 
     if SKN_FILE:
         SKN_FILEPATH=path.join(MODEL_DIR, SKN_FILE)
         sknHeader, materials, indices, vertices = lolMesh.importSKN(SKN_FILEPATH)
         lolMesh.buildMeshNative(SKN_FILEPATH)
         meshObj = bpy.data.objects['lolMesh']
+        bpy.ops.object.select_all(action='DESELECT')
+        meshObj.select = True
+        bpy.ops.transform.resize(value=(-1,1,1), constraint_axis=(True, False,
+            False), constraint_orientation='GLOBAL')
         #meshObj.name = 'lolMesh'
         #Presently io_scene_obj.load() does not import vertex normals, 
         #so do it ourselves

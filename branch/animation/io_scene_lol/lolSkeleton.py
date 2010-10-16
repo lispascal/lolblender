@@ -163,7 +163,7 @@ def buildSKL(boneDict):
 
         newBone.align_roll(boneAlignToAxis)
         newBone.lock = False
-        #newBone.use_local_location = False
+        newBone.use_local_location = False
 
         '''
         #Edit the 4x4 transformation matrix directly.  Matrix
