@@ -144,8 +144,11 @@ named 'lolMesh'.  Nothing to export.'''
                 print(errStr)
                 raise KeyError
 
+    bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
+            True), constraint_orientation='GLOBAL')
     lolMesh.exportSKN(meshObj, outputFile)
-
+    bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
+            True), constraint_orientation='GLOBAL')
 
 def import_sco(filepath):
     import lolMesh
