@@ -403,7 +403,7 @@ def importSCO(filename):
         #Start checking against keywords
     
         #Are we just starting an object?
-        if line.sartswith('[objectbegin]') and not inObject:
+        if line.startswith('[objectbegin]') and not inObject:
             inObject = True
             objects.append(scoObject())
             continue
@@ -442,6 +442,7 @@ def importSCO(filename):
 
             elif line.startswith('faces='):
                 faces = line.split()[-1]
+                
                 for k in range(int(faces)):
                     fields = fid.readline().strip().split()
                     nVtx = int(fields[0])
@@ -461,7 +462,7 @@ def importSCO(filename):
                     
                     #First time we've come across this material?  Add it to the
                     #list
-                    if mat not in materialList:
+                    if mat not in objects[-1].materialList:
                         objects[-1].materialList.append(mat)
 
                     #Add uvs to the face index

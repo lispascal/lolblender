@@ -148,7 +148,8 @@ named 'lolMesh'.  Nothing to export.'''
 
 
 def import_sco(filepath):
-    lolMesh.buildSco(filepath)
+    import lolMesh
+    lolMesh.buildSCO(filepath)
 
 
 import bpy
