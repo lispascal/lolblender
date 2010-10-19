@@ -20,24 +20,24 @@ from collections import UserDict
 import struct
 testFile = '/var/tmp/downloads/lol/Wolfman/Wolfman.skn'
     
-class sknHeader(UserDict):
+class sknHeader():
 
     def __init__(self):
         UserDict.__init__(self)
         self.__format__ = '<i2h'
         self.__size__ = struct.calcsize(self.__format__)
-        self['magic'] = None
-        self['numMaterials'] = None
-        self['numObjects'] = None
+        self.magic = None
+        self.numMaterials = None
+        self.numObjects = None
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
-        (self['magic'], self['numMaterials'], 
-                self['numObjects']) = struct.unpack(self.__format__, buf)
+        (self.magic, self.numMaterials, 
+                self.numObjects) = struct.unpack(self.__format__, buf)
 
     def toFile(self, sknFid):
-        buf = struct.pack(self.__format__, self['magic'], self['numMaterials'],
-                self['numObjects'])
+        buf = struct.pack(self.__format__, self.magic, self.numMaterials,
+                self.numObjects)
         sknFid.write(buf)
 
 class sknMaterial(UserDict):
@@ -47,27 +47,27 @@ class sknMaterial(UserDict):
         self.__format__ = '<i64s4i'
         self.__size__ = struct.calcsize(self.__format__)
 
-        self['matIndex'] = None
-        self['name'] = None
-        self['startVertex'] = None
-        self['numVertices'] = None
-        self['startIndex'] = None
-        self['numIndices'] = None
+        self.matIndex = None
+        self.name = None
+        self.startVertex = None
+        self.numVertices = None
+        self.startIndex = None
+        self.numIndices = None
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
         fields = struct.unpack(self.__format__, buf)
 
-        self['matIndex'] = fields[0]
-        #self['name'] = bytes.decode(fields[1])
-        self['name'] = fields[1]
-        (self['startVertex'], self['numVertices']) = fields[2:4]
-        (self['startIndex'], self['numIndices']) = fields[4:6]
+        self.matIndex = fields[0]
+        #self.name = bytes.decode(fields[1])
+        self.name = fields[1]
+        (self.startVertex, self.numVertices) = fields[2:4]
+        (self.startIndex, self.numIndices) = fields[4:6]
 
     def toFile(self, sknFid):
-        buf = struct.pack(self.__format__, self['matIndex'], self['name'],
-                self['startVertex'], self['numVertices'],
-                self['startIndex'], self['numIndices'])
+        buf = struct.pack(self.__format__, self.matIndex, self.name,
+                self.startVertex, self.numVertices,
+                self.startIndex, self.numIndices)
         sknFid.write(buf)
 
 
@@ -79,30 +79,42 @@ class sknVertex(UserDict):
         self.reset()
 
     def reset(self):
-        self['position'] = [0.0, 0.0, 0.0]
-        self['boneIndex'] = [0, 0, 0, 0]
-        self['weights'] = [0.0, 0.0, 0.0, 0.0]
-        self['normal'] = [0.0, 0.0, 0.0]
-        self['texcoords'] = [0.0, 0.0]
+        self.position = [0.0, 0.0, 0.0]
+        self.boneIndex = [0, 0, 0, 0]
+        self.weights = [0.0, 0.0, 0.0, 0.0]
+        self.normal = [0.0, 0.0, 0.0]
+        self.texcoords = [0.0, 0.0]
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
         fields = struct.unpack(self.__format__, buf)
 
-        self['position'] = fields[0:3]
-        self['boneIndex'] = fields[3:7]
-        self['weights'] = fields[7:11]
-        self['normal'] = fields[11:14]
-        self['texcoords'] = fields[14:16]
+        self.position = fields[0:3]
+        self.boneIndex = fields[3:7]
+        self.weights = fields[7:11]
+        self.normal = fields[11:14]
+        self.texcoords = fields[14:16]
 
     def toFile(self, sknFid):
         buf = struct.pack(self.__format__,
-                self['position'][0], self['position'][1], self['position'][2],
-                self['boneIndex'][0],self['boneIndex'][1],self['boneIndex'][2],self['boneIndex'][3],
-                self['weights'][0],self['weights'][1],self['weights'][2],self['weights'][3],
-                self['normal'][0],self['normal'][1],self['normal'][2],
-                self['texcoords'][0],self['texcoords'][1])
+                self.position[0], self.position[1], self.position[2],
+                self.boneIndex[0],self.boneIndex[1],self.boneIndex[2],self.boneIndex[3],
+                self.weights[0],self.weights[1],self.weights[2],self.weights[3],
+                self.normal[0],self.normal[1],self.normal[2],
+                self.texcoords[0],self.texcoords[1])
         sknFid.write(buf)
+
+class scoObject():
+
+    def __init__(self):
+        self.name = None
+        self.centralpoint = None
+        self.pivotpoint = None
+        self.vtxList = []
+        self.faceList = []
+        self.uvDict = {}
+        self.materialList = []
+
 
 def importSKN(filepath):
     sknFid = open(filepath, 'rb')
@@ -112,13 +124,12 @@ def importSKN(filepath):
     header.fromFile(sknFid)
 
     materials = []
-    if header['numMaterials'] > 0:
+    if header.numMaterials > 0:
         materials.append(sknMaterial())
         materials[-1].fromFile(sknFid)
 
     buf = sknFid.read(struct.calcsize('<2i'))
     numIndices, numVertices = struct.unpack('<2i', buf)
-    #print(numIndices, numVertices)
 
     #For some files, numIndices and numVertices aren't put after the first
     #material and our unpacking above results in bogus values.  In these
@@ -126,13 +137,12 @@ def importSKN(filepath):
     #improper unpacking - check against this.  If true, use the values in the
     #material header.  These files have matIndex = 2 and are unreadable atm.
     
-    if header['numMaterials'] > 0 and materials[-1]['matIndex'] == 2:
+    if header.numMaterials > 0 and materials[-1].matIndex == 2:
         print('WARNING:  This skin has matIndex = 2 and is currently unreadable')
         if abs(numIndices) > 20e3 or abs(numVertices) > 10e3:
-            numIndices = materials[0]['numIndices']
-            numVertices = materials[0]['numVertices']
+            numIndices = materials[0].numIndices
+            numVertices = materials[0].numVertices
             sknFid.seek(-(struct.calcsize('<2i')),1)
-    #print(numIndices, numVertices)
 
     indices = []
     vertices = []
@@ -144,14 +154,8 @@ def importSKN(filepath):
         vertices.append(sknVertex())
         vertices[-1].fromFile(sknFid)
 
-    #fpos = sknFid.tell()
-    #fsize = stat(file).st_size
-    #buf = sknFid.read()
-    #print(buf)
     sknFid.close()
 
-    #print('numObjects: %d numMaterials: %d rbytes %d %s' %(header['numObjects'], header['numMaterials'], fsize - fpos, filepath))
-    #filename = path.split(file)[-1]
     return header, materials, indices, vertices
 
 class dummyContext(object):
@@ -160,12 +164,12 @@ class dummyContext(object):
 
 def skn2obj(header, materials, indices, vertices):
     objStr=""
-    if header['numMaterials'] > 0:
-        objStr+="g mat_%s\n" %(materials[0]['name'])
+    if header.numMaterials > 0:
+        objStr+="g mat_%s\n" %(materials[0].name)
     for vtx in vertices:
-        objStr+="v %f %f %f\n" %(vtx['position'])
-        objStr+="vn %f %f %f\n" %(vtx['normal'])
-        objStr+="vt %f %f\n" %(vtx['texcoords'][0], 1-vtx['texcoords'][1])
+        objStr+="v %f %f %f\n" %(vtx.position)
+        objStr+="vn %f %f %f\n" %(vtx.normal)
+        objStr+="vt %f %f\n" %(vtx.texcoords[0], 1-vtx.texcoords[1])
 
     tmp = int(len(indices)/3)
     for idx in range(tmp):
@@ -179,34 +183,11 @@ def skn2obj(header, materials, indices, vertices):
     return objStr
 
 def buildMesh(filepath):
-    import os.path
-    from io_scene_obj import import_obj
-    import bpy
-    (header, materials, indices, vertices) = importSKN(filepath)
-    if header['numMaterials'] > 0 and materials[0]['matIndex'] == 2:
-        print('ERROR:  Skins with matIndex = 2 are currently unreadable.  Exiting')
-        return {'FINISHED'}
-    objStr = skn2obj(header, materials, indices, vertices)
-    objFile = os.path.splitext(filepath)[0]+'.obj'
-
-    objFid = open(objFile, 'w')
-    objFid.write(objStr)
-    objFid.close()
-
-    context = dummyContext()
-    context.scene = bpy.data.scenes[0]
-
-    import_obj.load(None, context, objFile, CREATE_FGONS=False,
-        CREATE_SMOOTH_GROUPS = False, CREATE_EDGES = False,
-        SPLIT_OBJECTS = False, SPLIT_GROUPS = False, ROTATE_X90 = False,
-        IMAGE_SEARCH=False, POLYGROUPS = False)
-
-def buildMeshNative(filepath):
     import bpy
     from os import path
     (header, materials, indices, vertices) = importSKN(filepath)
     
-    if header['numMaterials'] > 0 and materials[0]['matIndex'] == 2:
+    if header.numMaterials > 0 and materials[0].matIndex == 2:
         print('ERROR:  Skins with matIndex = 2 are currently unreadable.  Exiting')
         return{'CANCELLED'} 
 
@@ -222,10 +203,9 @@ def buildMeshNative(filepath):
     normList = []
     uvList = []
     for vtx in vertices:
-        #vtxList.append( [vtx['position'][0],vtx['position'][1],vtx['position'][2]] )
-        vtxList.append( vtx['position'][:] )
-        normList.extend( vtx['normal'][:] )
-        uvList.append( [vtx['texcoords'][0], 1-vtx['texcoords'][1]] )
+        vtxList.append( vtx.position[:] )
+        normList.extend( vtx.normal[:] )
+        uvList.append( [vtx.texcoords[0], 1-vtx.texcoords[1]] )
 
     #Build the mesh
     #Get current scene
@@ -271,7 +251,7 @@ def buildMeshNative(filepath):
 
     return {'FINISHED'}
     
-def addDefaultWeights2(boneList, sknVertices, armatureObj, meshObj):
+def addDefaultWeights(boneList, sknVertices, armatureObj, meshObj):
 
     '''Add an armature modifier to the mesh'''
     meshObj.modifiers.new(name='Armature', type='ARMATURE')
@@ -291,47 +271,15 @@ def addDefaultWeights2(boneList, sknVertices, armatureObj, meshObj):
     '''
     Loop over vertices by index & add weights
     '''
-    for vtx_idx in range(len(sknVertices)):
-        vtx = sknVertices[vtx_idx]
+    for vtx_idx, vtx in enumerate(sknVertices):
         for k in range(4):
-            boneId = vtx['boneIndex'][k]
-            weight = vtx['weights'][k]
+            boneId = vtx.boneIndex[k]
+            weight = vtx.weights[k]
 
             meshObj.vertex_groups.assign([vtx_idx],
                     meshObj.vertex_groups[boneId],
                     weight,
                     'ADD')
-def addDefaultWeights(boneDict, sknVertices, armatureObj, meshObj):
-
-    '''Add an armature modifier to the mesh'''
-    meshObj.modifiers.new(name='Armature', type='ARMATURE')
-    meshObj.modifiers['Armature'].object = armatureObj
-
-    '''
-    Blender bone deformations create vertex groups with names corresponding to
-    the intended bone.  I.E. the bone 'L_Hand' deforms vertices in the group
-    'L_Hand'.
-
-    We will create a vertex group for each bone using their index number
-    '''
-
-    for id, bone in boneDict.items():
-        meshObj.vertex_groups.new(name=bone['name'])
-
-    '''
-    Loop over vertices by index & add weights
-    '''
-    for vtx_idx in range(len(sknVertices)):
-        vtx = sknVertices[vtx_idx]
-        for k in range(4):
-            boneId = vtx['boneIndex'][k]
-            weight = vtx['weights'][k]
-
-            meshObj.vertex_groups.assign([vtx_idx],
-                    meshObj.vertex_groups[boneId],
-                    weight,
-                    'ADD')
-
 
 def exportSKN(meshObj, outFile):
     import bpy
@@ -360,9 +308,9 @@ def exportSKN(meshObj, outFile):
 
     #Write header block
     header = sknHeader()
-    header['magic'] = 1122867
-    header['numMaterials'] = 0
-    header['numObjects'] = 1
+    header.magic = 1122867
+    header.numMaterials = 0
+    header.numObjects = 1
 
     #create output file 
     sknFid = open(outFile, 'wb')
@@ -385,13 +333,13 @@ def exportSKN(meshObj, outFile):
     for idx, vtx in enumerate(meshObj.data.vertices):
         sknVtx.reset()
         #get position
-        sknVtx['position'][0] = vtx.co[0]
-        sknVtx['position'][1] = vtx.co[1]
-        sknVtx['position'][2] = vtx.co[2]
+        sknVtx.position[0] = vtx.co[0]
+        sknVtx.position[1] = vtx.co[1]
+        sknVtx.position[2] = vtx.co[2]
         
-        sknVtx['normal'][0] = vtx.normal[0]
-        sknVtx['normal'][1] = vtx.normal[1]
-        sknVtx['normal'][2] = vtx.normal[2]
+        sknVtx.normal[0] = vtx.normal[0]
+        sknVtx.normal[1] = vtx.normal[1]
+        sknVtx.normal[2] = vtx.normal[2]
 
         #get weights
         #The SKN format only allows 4 bone weights,
@@ -415,19 +363,19 @@ def exportSKN(meshObj, outFile):
             #Spread remaining weight proportionally across bones
             remWeight = 1-tmpSum
             for k in range(4):
-                sknVtx['boneIndex'][k] = tmpList[k][0]
-                sknVtx['weights'][k] = tmpList[k][1] + tmpList[k][1]*remWeight/tmpSum
+                sknVtx.boneIndex[k] = tmpList[k][0]
+                sknVtx.weights[k] = tmpList[k][1] + tmpList[k][1]*remWeight/tmpSum
 
         else:
             #If we have 4 or fewer bone/weight associations,
             #just add them as is
             for vtxIdx, group in enumerate(vtx.groups):
-                sknVtx['boneIndex'][vtxIdx] = group.group
-                sknVtx['weights'][vtxIdx] = group.weight
+                sknVtx.boneIndex[vtxIdx] = group.group
+                sknVtx.weights[vtxIdx] = group.weight
 
         #Get UV's
-        sknVtx['texcoords'][0] = vtxUvs[idx][0]
-        sknVtx['texcoords'][1] = vtxUvs[idx][1]
+        sknVtx.texcoords[0] = vtxUvs[idx][0]
+        sknVtx.texcoords[1] = vtxUvs[idx][1]
 
         #writeout the vertex
         sknVtx.toFile(sknFid)
@@ -455,42 +403,45 @@ def importSCO(filename):
         #Start checking against keywords
     
         #Are we just starting an object?
-        if line == '[objectbegin]' and not inObject:
+        if line.sartswith('[objectbegin]') and not inObject:
             inObject = True
+            objects.append(scoObject())
             continue
 
         #Are we ending an object?
-        if line == '[objectend]' and inObject:
+        if line.startswith('[objectend]') and inObject:
             inObject = False
-
-            #add tupple to object list
-            objects.append( (name, centralpoint, vtxList, faceList, uvDict, materialList) )
             continue
 
         #If we're in an object, start parsing
         #Headers appear space-deliminted
         #'Name= [name]', 'Verts= [verts]', etc.
+        #Valid fields:
+        #   name
+        #   centralpoint
+        #   pivotpoint
+        #   verts
+        #   faces
+
         if inObject:
             if line.startswith('name='):
-                name=line.split(' ')[-1]
+                objects[-1].name=line.split()[-1]
+
             elif line.startswith('centralpoint='):
-                centralpoint = line.split(' ')[-1]
+                objects[-1].centralpoint = line.split()[-1]
+
             elif line.startswith('pivotpoint='):
-                pivotpoint = line.split(' ')[-1]
+                objects[-1].pivotpoint = line.split()[-1]
             
             elif line.startswith('verts='):
-                verts = line.split(' ')[-1]
-                vtxList = []
+                verts = line.split()[-1]
                 for k in range(int(verts)):
-                    vtxPos = fid.readline().strip().split(' ')
+                    vtxPos = fid.readline().strip().split()
                     vtxPos = [float(x) for x in vtxPos]
-                    vtxList.append(vtxPos)
+                    objects[-1].vtxList.append(vtxPos)
 
             elif line.startswith('faces='):
-                faces = line.split(' ')[-1]
-                faceList = []
-                materialList = []
-                uvDict = {}
+                faces = line.split()[-1]
                 for k in range(int(faces)):
                     fields = fid.readline().strip().split()
                     nVtx = int(fields[0])
@@ -502,57 +453,55 @@ def importSCO(filename):
                     uvs[1] = [float(x) for x in fields[7:9]]
                     uvs[2] = [float(x) for x in fields[9:11]]
 
-                    faceList.append(vIds)
+                    objects[-1].faceList.append(vIds)
+                    #Blender can only handle material names of 16 characters or
+                    #less
                     if len(mat) > 16:
                         mat = mat[:16]
+                    
+                    #First time we've come across this material?  Add it to the
+                    #list
                     if mat not in materialList:
-                        materialList.append(mat)
-                    #materialList.append(mat)
+                        objects[-1].materialList.append(mat)
 
+                    #Add uvs to the face index
                     for k,j in enumerate(vIds):
-                        uvDict[j]=uvs[k]
+                        objects[-1].uvDict[j]=uvs[k]
 
-                    print(uvs)
-
+    #Close out and return the parsed objects
     fid.close()
     return objects
 
 def buildSCO(filename):
     import bpy
-    objects = importSCO(filename)
+    scoObjects = importSCO(filename)
 
-    for object in objects:
-        name = object[0]
-        vtxList = object[2]
-        faceList = object[3]
-        uvDict = object[4]
-        materialList = object[5]
+    for sco in scoObjects:
 
         #get scene
         scene=bpy.context.scene
-        mesh = bpy.data.meshes.new(name)
-        mesh.from_pydata(vtxList, [], faceList)
+        mesh = bpy.data.meshes.new(sco.name)
+        mesh.from_pydata(sco.vtxList, [], sco.faceList)
         mesh.update()
 
-        meshObj = bpy.data.objects.new(name, mesh)
+        meshObj = bpy.data.objects.new(sco.name, mesh)
 
         scene.objects.link(meshObj)
 
-        print(materialList)
-        for mat in materialList:
-            print(mat)
+        print(sco.materialList)
+        for mat in sco.materialList:
             uvtex = meshObj.data.uv_textures.new(mat)
             for k, face in enumerate(meshObj.data.faces):
                 vtxIds = face.vertices[:]
                 bl_tface = uvtex.data[k]
-                bl_tface.uv1[0] = uvDict[vtxIds[0]][0]
-                bl_tface.uv1[1] = 1-uvDict[vtxIds[0]][1]
+                bl_tface.uv1[0] = sco.uvDict[vtxIds[0]][0]
+                bl_tface.uv1[1] = 1-sco.uvDict[vtxIds[0]][1]
 
-                bl_tface.uv2[0] = uvDict[vtxIds[1]][0]
-                bl_tface.uv2[1] = 1-uvDict[vtxIds[1]][1]
+                bl_tface.uv2[0] = sco.uvDict[vtxIds[1]][0]
+                bl_tface.uv2[1] = 1-sco.uvDict[vtxIds[1]][1]
 
-                bl_tface.uv3[0] = uvDict[vtxIds[2]][0]
-                bl_tface.uv3[1] = 1-uvDict[vtxIds[2]][1]
+                bl_tface.uv3[0] = sco.uvDict[vtxIds[2]][0]
+                bl_tface.uv3[1] = 1-sco.uvDict[vtxIds[2]][1]
 
         mesh.update()
         
@@ -571,7 +520,7 @@ if __name__ == '__main__':
     #i = 0
     #for vtx in vertices:
     #    for k in range(4):
-    #        idx = vtx['boneIndex'][k]
+    #        idx = vtx.boneIndex[k]
     #        if idx < 1 or idx > 26:
     #            print(i, vtx)
     #    i+=1

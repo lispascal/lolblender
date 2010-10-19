@@ -21,7 +21,7 @@ __all__ = ['lolMesh', 'lolSkeleton']
 bl_addon_info = {
     'name': 'Import League of Legends Character files (.skn;.skl)',
     'author': 'Zac Berkowitz',
-    'version': (0,3),
+    'version': (0,4),
     'blender': (2,5,3),
     'location': 'File > Import',
     'category': 'Import/Export',
@@ -66,7 +66,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
         #sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
         sklHeader, boneList = lolSkeleton.importSKL(SKL_FILEPATH)
-        lolSkeleton.buildSKL2(SKL_FILEPATH)
+        lolSkeleton.buildSKL(boneList)
         armObj = bpy.data.objects['Armature']
         armObj.name ='lolArmature'
         armObj.data.draw_type = 'STICK'
@@ -76,12 +76,12 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
     if SKN_FILE:
         SKN_FILEPATH=path.join(MODEL_DIR, SKN_FILE)
         sknHeader, materials, indices, vertices = lolMesh.importSKN(SKN_FILEPATH)
-        lolMesh.buildMeshNative(SKN_FILEPATH)
+        lolMesh.buildMesh(SKN_FILEPATH)
         meshObj = bpy.data.objects['lolMesh']
         bpy.ops.object.select_all(action='DESELECT')
         meshObj.select = True
-        bpy.ops.transform.resize(value=(-1,1,1), constraint_axis=(True, False,
-            False), constraint_orientation='GLOBAL')
+        bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
+            True), constraint_orientation='GLOBAL')
         #meshObj.name = 'lolMesh'
         #Presently io_scene_obj.load() does not import vertex normals, 
         #so do it ourselves
@@ -89,7 +89,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         #    vtx.normal = vertices[id]['normal']
         
     if SKN_FILE and SKL_FILE and APPLY_WEIGHTS:
-        lolMesh.addDefaultWeights2(boneList, vertices, armObj, meshObj)
+        lolMesh.addDefaultWeights(boneList, vertices, armObj, meshObj)
 
     if DDS_FILE and APPLY_TEXTURE:
         DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)
@@ -117,8 +117,6 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         meshObj.data.uv_textures[0].data[0].image = img
         meshObj.data.uv_textures[0].data[0].use_image = True
         meshObj.data.uv_textures[0].data[0].blend_type = 'ALPHA'
-        #meshObj.data.update()
-        #bpy.ops.object.mode_set(mode='OBJECT')
 
 
 def export_char(outputFile, meshObj = None):
@@ -147,6 +145,11 @@ named 'lolMesh'.  Nothing to export.'''
                 raise KeyError
 
     lolMesh.exportSKN(meshObj, outputFile)
+
+
+def import_sco(filepath):
+    lolMesh.buildSco(filepath)
+
 
 import bpy
 from bpy import props
@@ -186,8 +189,6 @@ class IMPORT_OT_lol(bpy.types.Operator, ImportHelper):
         box.prop(self.properties, 'APPLY_WEIGHTS', text='Load mesh weights')
         
     def execute(self, context):
-        print(self.MODEL_DIR)
-        print(self.SKN_FILE)
         
         import_char(MODEL_DIR=self.MODEL_DIR,
                     SKN_FILE=self.SKN_FILE,
@@ -210,9 +211,24 @@ class EXPORT_OT_lol(bpy.types.Operator, ExportHelper):
         export_char(self.properties.filepath)
         return {'FINISHED'}
         
-    
+class IMPORT_OT_sco(bpy.types.Operator, ImportHelper):
+    '''Import a League of Legends .sco file'''
+
+    bl_idname="import.sco"
+    bl_label="Import .sco"
+
+    filename_ext = '.sco'
+
+    def execute(self, context):
+        import_sco(self.filepath)
+        return {'FINISHED'}
+
+
+
 def menu_func_import(self, context):
-    self.layout.operator(IMPORT_OT_lol.bl_idname, text="League of Legends (.skn;.skl)")
+    self.layout.operator(IMPORT_OT_lol.bl_idname, text='League of Legends Character (.skn;.skl)')
+    self.layout.operator(IMPORT_OT_sco.bl_idname, text='League of Legends Particle (.sco)')
+
 
 def menu_func_export(self, context):
     self.layout.operator(EXPORT_OT_lol.bl_idname, text="League of Legends (.skn)")

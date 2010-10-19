@@ -87,9 +87,10 @@ class sklBone():
         self.matrix[1] = list( fields[7:11] )
         self.matrix[2] = list( fields[11:15] )
 
-        #Flip x axis
+        #Flip z axis
         for k in range(4):
-            self.matrix[0][k] = -self.matrix[0][k]
+            self.matrix[2][k] = -self.matrix[2][k]
+
     def toFile(self,sklFile):
         """Writes skeleton bone object to a binary file FID"""
 
@@ -121,7 +122,7 @@ def importSKL(filepath):
 def buildSKL2(filename):
     import bpy
     from mathutils import Matrix, Vector
-    from math import acos
+    from math import acos, sqrt
 
     header, boneList = importSKL(filename)
     #Create Blender Armature
@@ -183,6 +184,7 @@ def buildSKL2(filename):
 
     #Catch bones with no children
     #print(boneDict)
+    sqrt3 = sqrt(3)
     for bone in arm.edit_bones:
         if len(bone.children) == 0:
             print(bone.name)
@@ -196,13 +198,16 @@ def buildSKL2(filename):
             #get the bone normal, it's the
             # -x basis vector after rotating
             x = Vector((boneMatrix[0][0], boneMatrix[1][0], boneMatrix[2][0]))
+            x = -x
             y = Vector((boneMatrix[0][1], boneMatrix[1][1], boneMatrix[2][1]))
             z = Vector((boneMatrix[0][2], boneMatrix[1][2], boneMatrix[2][2]))
-            print(x,y,z)
             #M[0][:3] = boneMatrix[0]
             #M[1][:3] = boneMatrix[1]
             #M[2][:3] = boneMatrix[2]
             #M[3] = [0,0,0,1]
+            bone.tail = bone.head
+            bone.tail += length*x
+            '''
             bone.tail = bone.head + x*length
             theta = bone.x_axis.dot(y)
             print('bone_x:', bone.x_axis, '\ndesired:', y)
@@ -245,24 +250,14 @@ def buildSKL2(filename):
             #print(theta)
             #z_axis = -z_axis
             #bone.tail = length*(x_axis+y_axis+z_axis)/sqrt(3.0)+bone.head
-            '''
-            bone.align_roll(y)
-            
-            dot = bone.x_axis.dot(z)
-            Mr = Matrix.Rotation(3.14159, 4, bone.z_axis)
-            McInv = Matrix.Translation(-bone.head)
-            Mc = Matrix.Translation(bone.head)
-            tail4 = bone.tail.copy().resize4D()
-            tail4[-1] = 0
 
-            bone.tail = (McInv*Mr*Mc*tail4).resize3D()
-            '''
             #Another kind
             #x_vec = Vector((length, 0, 0))
             #m = Matrix((boneMatrix[0][0], boneMatrix[1][0], boneMatrix[2][0]),
             #            (boneMatrix[0][1], boneMatrix[1][1], boneMatrix[2][1]),
             #            (boneMatrix[0][2], boneMatrix[1][2], boneMatrix[2][2]))
 
+            '''
             #print(bone.name, length, boneNormal)
         #newBone.align_roll(boneAlignToAxis)
         #newBone.lock = True
@@ -278,11 +273,10 @@ def buildSKL(boneList):
     bones = arm.edit_bones
     #Remove the default bone
     bones.remove(bones[0])
-
     #import the bones
     for boneID, bone in enumerate(boneList):
-        boneName = bone.name
-        boneTail = (bone.matrix[0][3], bone.matrix[1][3], bone.matrix[2][3])
+        boneName = bone.name.rstrip('\x00')
+        boneHead = (bone.matrix[0][3], bone.matrix[1][3], bone.matrix[2][3])
         boneParentID = bone.parent
 
         boneAlignToAxis= (bone.matrix[0][2], bone.matrix[1][2],
@@ -290,22 +284,35 @@ def buildSKL(boneList):
 
 
         newBone = arm.edit_bones.new(boneName)
-        newBone.head[:] = boneTail
+        #newBone.head[:] = boneTail
         
         #If this is a root bone set the y offset to 0 for the head element
-        if boneParentID == -1:
-            newBone.head[:] = (boneTail[0],0,boneTail[2])
+        #if boneParentID == -1:
+        #    newBone.head[:] = (boneHead[0],0,boneHead[2])
+        newBone.head = boneHead
 
         #If this bone is a child, find the parent's tail and attach this bone's
         #head to it
         if boneParentID > -1:
             boneParentName = boneList[boneParentID].name
-            newBone.parent = arm.edit_bones[boneParentName]
-            #newBone.use_connect = True
+            parentBone = arm.edit_bones[boneParentName]
+            newBone.parent = parentBone
+            #build chains of successively parented bones
+            if boneParentID == (boneID - 1):
+                parentBone.tail = newBone.head
+                newBone.use_connect = True
 
 
-        #newBone.align_roll(boneAlignToAxis)
-        #newBone.lock = True
+    #Final loop through bones.  Find bones w/out children & align to parent (for
+    #now
+
+    for bone in arm.edit_bones:
+        if len(bone.children) == 0:
+            bone.length = 10
+            #If the orphan bone has a parent
+            if bone.parent:
+                bone.align_orientation(bone.parent)
+
 
     bpy.ops.object.mode_set(mode='OBJECT')
 
