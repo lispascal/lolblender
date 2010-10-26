@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 # <pep8 compliant>
-import lolMesh, lolSkeleton
+from io_scene_lol import lolMesh, lolSkeleton
 def prettyPrintSkl(filename, start=0, stop=-1, returnStr=True, **options):
     
     header, boneList = lolSkeleton.importSKL(filename)
