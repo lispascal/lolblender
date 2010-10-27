@@ -103,7 +103,7 @@ class IMPORT_OT_sco(bpy.types.Operator, ImportHelper):
     filename_ext = '.sco'
 
     def execute(self, context):
-        import_sco(self.filepath)
+        import_sco(self.properties.filepath)
         return {'FINISHED'}
 def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         CLEAR_SCENE=True, APPLY_WEIGHTS=True, APPLY_TEXTURE=True):
