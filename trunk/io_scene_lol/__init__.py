@@ -22,10 +22,13 @@ __all__ = ['lolMesh', 'lolSkeleton', '__bpy_init__']
 
 #Try importing blender API - will fail if running outside of blender
 try:
-    #import bpy
+    #Attempt to load everything from __bpy_init__ into the current namespace
     from .__bpy_init__ import *
+    #if this was successful, we're within Blender.  Set the flag True
     __in_blender__ = True
 except ImportError:
+    #Don't exit if we couldn't import bpy related modules, we may be getting
+    #called for something else...
     pass
 
 if __name__ == "__main__":

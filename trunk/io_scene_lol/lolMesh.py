@@ -16,35 +16,40 @@
 # ##### END GPL LICENSE BLOCK #####
 
 # <pep8 compliant>
-from collections import UserDict
+#from collections import UserDict
 import struct
 testFile = '/var/tmp/downloads/lol/Wolfman/Wolfman.skn'
     
 class sknHeader():
 
     def __init__(self):
-        UserDict.__init__(self)
-        self.__format__ = '<i2hi'
+        #UserDict.__init__(self)
+        self.__format__ = '<i2h'
         self.__size__ = struct.calcsize(self.__format__)
-        self.magic = None
-        self.matHeader = None
-        self.numObjects = None
-        self.numMaterials = None
+        self.magic = 0
+        self.matHeader = 0
+        self.numObjects = 0
+        #self.numMaterials = 0
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
         (self.magic, self.matHeader, 
-                self.numObjects, self.numMaterials) = struct.unpack(self.__format__, buf)
+                self.numObjects) = struct.unpack(self.__format__, buf)
 
     def toFile(self, sknFid):
         buf = struct.pack(self.__format__, self.magic, self.matHeader,
-                self.numObjects, self.numMaterials)
+                self.numObjects)
+
         sknFid.write(buf)
 
-class sknMaterial(UserDict):
+    def __str__(self):
+        return "{'__format__': %s, '__size__': %d, 'magic': %d, 'matHeader': %d, 'numObjects':%d}"\
+        %(self.__format__, self.__size__, self.magic, self.matHeader, self.numObjects)
+
+class sknMaterial():
 
     def __init__(self):
-        UserDict.__init__(self)
+        #UserDict.__init__(self)
         self.__format__ = '<64s4i'
         self.__size__ = struct.calcsize(self.__format__)
 
@@ -69,10 +74,15 @@ class sknMaterial(UserDict):
                 self.startIndex, self.numIndices)
         sknFid.write(buf)
 
+    def __str__(self):
+        return "{'__format__': %s, '__size__': %d, 'name': %s, 'startVertex': \
+%d, 'numVertices':%d, 'startIndex': %d, 'numIndices': %d}"\
+        %(self.__format__, self.__size__, self.name, self.startVertex,
+                self.numVertices, self.startIndex, self.numIndices)
 
-class sknVertex(UserDict):
+class sknVertex():
     def __init__(self):
-        UserDict.__init__(self)
+        #UserDict.__init__(self)
         self.__format__ = '<3f4b4f3f2f'
         self.__size__ = struct.calcsize(self.__format__)
         self.reset()
@@ -112,7 +122,7 @@ class scoObject():
         self.vtxList = []
         self.faceList = []
         self.uvDict = {}
-        self.materialList = []
+        self.materialDict = {}
 
 
 def importSKN(filepath):
@@ -124,25 +134,20 @@ def importSKN(filepath):
 
     materials = []
     if header.matHeader > 0:
-        for k in range(header.numMaterials):
+        buf = sknFid.read(struct.calcsize('<i'))
+        numMaterials = struct.unpack('<i', buf)[0]
+
+        for k in range(numMaterials):
             materials.append(sknMaterial())
             materials[-1].fromFile(sknFid)
 
     buf = sknFid.read(struct.calcsize('<2i'))
     numIndices, numVertices = struct.unpack('<2i', buf)
-
-    #For some files, numIndices and numVertices aren't put after the first
-    #material and our unpacking above results in bogus values.  In these
-    #cases numIndices and numVertices will have some bogus huge value due to
-    #improper unpacking - check against this.  If true, use the values in the
-    #material header.  These files have numMaterials = 2 and are unreadable atm.
-    ''' 
-    if header.matHeader > 0 and materials[-1].numMaterials == 2:
-        print('WARNING:  This skin has numMaterials = 2 and is currently unreadable')
-        if abs(numIndices) > 20e3 or abs(numVertices) > 10e3:
-            numIndices = materials[0].numIndices
-            numVertices = materials[0].numVertices
-            sknFid.seek(-(struct.calcsize('<2i')),1)
+    '''
+    print(header)
+    for k in materials:
+        print(k) 
+    print(numIndices, numVertices)
     '''
     indices = []
     vertices = []
@@ -457,13 +462,14 @@ def importSCO(filename):
                     objects[-1].faceList.append(vIds)
                     #Blender can only handle material names of 16 characters or
                     #less
-                    if len(mat) > 16:
-                        mat = mat[:16]
+                    #if len(mat) > 16:
+                        #mat = mat[:16]
                     
-                    #First time we've come across this material?  Add it to the
-                    #list
-                    if mat not in objects[-1].materialList:
-                        objects[-1].materialList.append(mat)
+                    #Add the face index to the material
+                    try:
+                        objects[-1].materialDict[mat].append(k)
+                    except KeyError:
+                        objects[-1].materialDict[mat] = [k]
 
                     #Add uvs to the face index
                     for k,j in enumerate(vIds):
@@ -489,10 +495,17 @@ def buildSCO(filename):
 
         scene.objects.link(meshObj)
 
-        print(sco.materialList)
-        for mat in sco.materialList:
+        #print(sco.materialList)
+        for matID, mat in enumerate(sco.materialDict.keys()):
+            faceList = sco.materialDict[mat]
+            #Blener can only handle material names of 16 chars.  Construct a
+            #unique name ID using ##_name
+            if len(mat) > 16:
+                mat = str(matID).zfill(2) + '_' + mat[:13]
+
             uvtex = meshObj.data.uv_textures.new(mat)
             for k, face in enumerate(meshObj.data.faces):
+
                 vtxIds = face.vertices[:]
                 bl_tface = uvtex.data[k]
                 bl_tface.uv1[0] = sco.uvDict[vtxIds[0]][0]

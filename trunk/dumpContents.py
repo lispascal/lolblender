@@ -57,7 +57,7 @@ def prettyPrintSkn(filename, start=0, end=-1, returnStr = True, **options):
     headerStr = ""
     if(options['PRINT_HEADER']):
         headerStr += "magic:%d\nmatHeader:%d\nnumObjects:%d\nnumMaterials:%d\n\n" % (header.magic, 
-            header.matHeader, header.numObjects, header.numMaterials) 
+            header.matHeader, header.numObjects, len(materials)) 
 
     materialStr = ""
     if(options['PRINT_MATERIALS']):
