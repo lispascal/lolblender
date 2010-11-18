@@ -133,7 +133,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
     if SKL_FILE:
         SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
         #sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
-        sklHeader, boneList = lolSkeleton.importSKL(SKL_FILEPATH)
+        sklHeader, boneList, reorderedBoneList = lolSkeleton.importSKL(SKL_FILEPATH)
         lolSkeleton.buildSKL(boneList)
         armObj = bpy.data.objects['Armature']
         armObj.name ='lolArmature'
@@ -157,7 +157,11 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         #    vtx.normal = vertices[id]['normal']
         
     if SKN_FILE and SKL_FILE and APPLY_WEIGHTS:
-        lolMesh.addDefaultWeights(boneList, vertices, armObj, meshObj)
+        if reorderedBoneList == []:
+           lolMesh.addDefaultWeights(boneList, vertices, armObj, meshObj)
+        else:
+           print('Using reordered Bone List')
+           lolMesh.addDefaultWeights(reorderedBoneList, vertices, armObj, meshObj)
 
     if DDS_FILE and APPLY_TEXTURE:
         DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)

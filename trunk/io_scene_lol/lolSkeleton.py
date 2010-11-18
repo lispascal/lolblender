@@ -101,6 +101,16 @@ class sklBone():
 
         sklFile.write(data)
 
+    def copy(self):
+        newBone = sklBone()
+        newBone.name = self.name
+        newBone.parent = self.parent
+        newBone.scale = self.scale
+        newBone.matrix = self.matrix
+
+        return newBone
+
+
 def importSKL(filepath):
     header = sklHeader()
     boneList= []
@@ -115,8 +125,21 @@ def importSKL(filepath):
         boneList.append(sklBone())
         boneList[k].fromFile(sklFid)
 
+    reorderedBoneList = []
+    #Read in reordered bone assignments
+    while True:
+        buf = sklFid.read(4)
+        print(buf)
+        if buf == b'':
+            break
+        else:
+            boneId = struct.unpack('<i', buf)[0]
+
+        print(buf,boneId)
+        reorderedBoneList.append(boneList[boneId].copy())
+
     sklFid.close()
-    return header, boneList
+    return header, boneList, reorderedBoneList
 
 
 def buildSKL2(filename):
