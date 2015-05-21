@@ -19,21 +19,9 @@
 
 import bpy
 from bpy import props
-from io_utils import ImportHelper, ExportHelper
+from bpy_extras.io_utils import ImportHelper, ExportHelper
 from . import lolMesh, lolSkeleton
 from os import path
-
-bl_addon_info = {
-    'name': 'Import League of Legends Character files (.skn;.skl)',
-    'author': 'Zac Berkowitz',
-    'version': (0,5),
-    'blender': (2,5,4),
-    'location': 'File > Import',
-    'category': 'Import/Export',
-    'api': 31878,
-    'wiki_url': 'http://code.google.com/p/lolblender',
-    'tracker_url':'http://code.google.com/p/lolblender/issues/list'
-    }
 
 __bpydoc__="""
 Import/Export a League of Legends character model, including
@@ -235,8 +223,10 @@ def menu_func_export(self, context):
     self.layout.operator(EXPORT_OT_lol.bl_idname, text="League of Legends (.skn)")
 
 def register():
+    bpy.utils.register_class(IMPORT_OT_lol)
+    bpy.utils.register_class(IMPORT_OT_sco)
     bpy.types.INFO_MT_file_import.append(menu_func_import)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+    # bpy.types.INFO_MT_file_export.append(menu_func_export)
 
 def unregister():
     bpy.types.INFO_MT_file_import.remove(menu_func_import)

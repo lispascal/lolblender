@@ -20,6 +20,18 @@
 __in_blender__ = False
 __all__ = ['lolMesh', 'lolSkeleton', '__bpy_init__']
 
+bl_info = {
+    'name': 'Import League of Legends Character files (.skn;.skl)',
+    'author': 'Pascal Lis/Zac Berkowitz',
+    'version': (0,7),
+    'blender': (2,74,0),
+    'location': 'File > Import',
+    'category': 'Import/Export',
+    'api': 31878,
+    'wiki_url': 'https://github.com/lispascal/lolblender',
+    'tracker_url':'https://github.com/lispascal/lolblender/issues'
+    }
+
 #Try importing blender API - will fail if running outside of blender
 try:
     #Attempt to load everything from __bpy_init__ into the current namespace
