@@ -29,6 +29,7 @@ class sknHeader():
         self.magic = 0
         self.version = 0
         self.numObjects = 0
+        self.UNKNOWN_BLOCK_SIZE = 48
         #self.numMaterials = 0
 
     def fromFile(self, sknFid):
@@ -141,8 +142,29 @@ def importSKN(filepath):
             materials.append(sknMaterial())
             materials[-1].fromFile(sknFid)
 
+    # version 4 has an extra int here for some reason. Have seen it as zero
+    if header.version >= 4:
+        shouldBeZero = struct.unpack('<i', sknFid.read(struct.calcsize('<i')))[0]
+        if shouldBeZero != 0:
+            print("Warning: unknown value %s is non-zero" % shouldBeZero)
+
     buf = sknFid.read(struct.calcsize('<2i'))
     numIndices, numVertices = struct.unpack('<2i', buf)
+
+    if header.version >= 4:
+        header.unknown = []
+        for i in range(0, header.UNKNOWN_BLOCK_SIZE): # is this a checksum, or hash?
+            header.unknown.append(sknFid.read(1)[0])
+            # starts with [52, 0...0] (52, then 7 0s)
+            # coincidentally, 52 (or 0x34) is the size of the vertex objects in bytes (12 int + 4 byte = 52 bytes)
+            # changing that value seemed to cause a failure of the client to load the asset (?)
+            # ends with 67 (0x43)
+            # possibly a hash or checksum of some kind.
+            # Zeroing out the first 8th-23rd (inclusive) bytes of it resulted in no noticeable changes in game
+            # some part of bytes 25-32 contain health bar alignment, vertically
+
+
+
     '''
     print(header)
     for k in materials:
@@ -158,6 +180,10 @@ def importSKN(filepath):
     for k in range(numVertices):
         vertices.append(sknVertex())
         vertices[-1].fromFile(sknFid)
+
+    # exclusive to version two+.
+    if header.version >= 2:  # stuck in header b/c nowhere else for it
+        header.endTab = [struct.unpack('<3i', sknFid.read(struct.calcsize('<3i')))]
 
     sknFid.close()
 
@@ -239,9 +265,9 @@ def buildMesh(filepath):
     uv_layer = obj.data.uv_layers[-1].data  # sets layer to the above texture
     set = []
     for k, loop in enumerate(obj.data.loops):
-    	# data.loops contains the vertex of tris
-    	# k/3 = triangle #
-    	# k%3 = vertex number in that triangle
+        # data.loops contains the vertex of tris
+        # k/3 = triangle #
+        # k%3 = vertex number in that triangle
         v = loop.vertex_index  # "index" number
         set.append(uvList[v][0])  # u
         set.append(uvList[v][1])  # v

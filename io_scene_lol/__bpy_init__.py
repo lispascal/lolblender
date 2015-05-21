@@ -153,7 +153,10 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
 
     if DDS_FILE and APPLY_TEXTURE:
         DDS_FILEPATH=path.join(MODEL_DIR, DDS_FILE)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        try:  # in case user is already in object mode (ie, SKN and DDS but no SKL)
+            bpy.ops.object.mode_set(mode='OBJECT')
+        except RuntimeError:
+            pass
         bpy.ops.object.select_all(action='DESELECT')
         #bpy.data.objects['lolMesh'].select = True
         #bpy.ops.object.mode_set(mode='EDIT')
