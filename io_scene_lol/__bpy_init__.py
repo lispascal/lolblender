@@ -158,7 +158,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         #bpy.data.objects['lolMesh'].select = True
         #bpy.ops.object.mode_set(mode='EDIT')
 
-        img = bpy.data.images.new(DDS_FILE)
+        img = bpy.data.images.load(DDS_FILEPATH)
         img.filepath=DDS_FILEPATH
         img.source = 'FILE'
 
@@ -175,8 +175,8 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         meshObj.data.materials.append(mat)
 
         meshObj.data.uv_textures[0].data[0].image = img
-        meshObj.data.uv_textures[0].data[0].use_image = True
-        meshObj.data.uv_textures[0].data[0].blend_type = 'ALPHA'
+        # meshObj.data.uv_textures[0].data[0].use_image = True
+        # meshObj.data.uv_textures[0].data[0].blend_type = 'ALPHA'
 
 
 def export_char(outputFile, meshObj = None):

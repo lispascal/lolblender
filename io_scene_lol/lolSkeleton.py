@@ -21,7 +21,7 @@ import struct
 class sklHeader():
     """LoL skeleton header format:
     fileType        char[8]     8       version string
-    numObjects      int         4       number of objects (skeletons)
+    version      int         4       number of objects (skeletons)
     skeletonHash    int         4       unique id number?
     numElements     int         4       number of bones
 
@@ -32,7 +32,7 @@ class sklHeader():
         self.__format__ = '<8s3i'
         self.__size__ = struct.calcsize(self.__format__)
         self.fileType = None
-        self.numObjects = None
+        self.version = None
         self.skeletonHash = None
         self.numElements = None
 
@@ -40,7 +40,7 @@ class sklHeader():
         """Reads the skl header object from the raw binary file"""
         sklFile.seek(0)
         fields = struct.unpack(self.__format__, sklFile.read(self.__size__))
-        (fileType, self.numObjects, 
+        (fileType, self.version, 
                 self.skeletonHash, self.numElements) = fields
 
         self.fileType = bytes.decode(fileType)
@@ -49,7 +49,7 @@ class sklHeader():
     
     def toFile(self, sklFile):
         """Writes the header object to a raw binary file"""
-        data = struct.pack(self.__format__, self.fileType, self.numObjects,
+        data = struct.pack(self.__format__, self.fileType, self.version,
                 self.skeletonHash, self.numElements)
         sklFile.write(data)
 
@@ -124,19 +124,22 @@ def importSKL(filepath):
     for k in range(header.numElements):
         boneList.append(sklBone())
         boneList[k].fromFile(sklFid)
-
+    
     reorderedBoneList = []
-    #Read in reordered bone assignments
-    while True:
-        buf = sklFid.read(4)
-        print(buf)
-        if buf == b'':
-            break
-        else:
-            boneId = struct.unpack('<i', buf)[0]
 
-        print(buf,boneId)
-        reorderedBoneList.append(boneList[boneId].copy())
+    if header.version == 2:  # version 2 has a reordered bone list
+        #Read in reordered bone assignments
+        numBoneIDs = struct.unpack('<i', sklFid.read(4))[0]  # clue taken from LolViewer
+        for i in range(0, numBoneIDs):
+            buf = sklFid.read(4)
+            if buf == b'':
+                break
+            else:
+                boneId = struct.unpack('<i', buf)[0]
+
+            print(buf,boneId)
+            reorderedBoneList.append(boneList[boneId].copy())
+        print(len(reorderedBoneList))
 
     sklFid.close()
     return header, boneList, reorderedBoneList
@@ -295,7 +298,7 @@ def buildSKL(boneList):
 
     bones = arm.edit_bones
     #Remove the default bone
-    bones.remove(bones[0])
+    # bones.remove(bones[0])
     #import the bones
     for boneID, bone in enumerate(boneList):
         boneName = bone.name.rstrip('\x00')

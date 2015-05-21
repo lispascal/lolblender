@@ -27,24 +27,24 @@ class sknHeader():
         self.__format__ = '<i2h'
         self.__size__ = struct.calcsize(self.__format__)
         self.magic = 0
-        self.matHeader = 0
+        self.version = 0
         self.numObjects = 0
         #self.numMaterials = 0
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
-        (self.magic, self.matHeader, 
+        (self.magic, self.version, 
                 self.numObjects) = struct.unpack(self.__format__, buf)
 
     def toFile(self, sknFid):
-        buf = struct.pack(self.__format__, self.magic, self.matHeader,
+        buf = struct.pack(self.__format__, self.magic, self.version,
                 self.numObjects)
 
         sknFid.write(buf)
 
     def __str__(self):
-        return "{'__format__': %s, '__size__': %d, 'magic': %d, 'matHeader': %d, 'numObjects':%d}"\
-        %(self.__format__, self.__size__, self.magic, self.matHeader, self.numObjects)
+        return "{'__format__': %s, '__size__': %d, 'magic': %d, 'version': %d, 'numObjects':%d}"\
+        %(self.__format__, self.__size__, self.magic, self.version, self.numObjects)
 
 class sknMaterial():
 
@@ -133,7 +133,7 @@ def importSKN(filepath):
     header.fromFile(sknFid)
 
     materials = []
-    if header.matHeader > 0:
+    if header.version > 0:
         buf = sknFid.read(struct.calcsize('<i'))
         numMaterials = struct.unpack('<i', buf)[0]
 
@@ -169,7 +169,7 @@ class dummyContext(object):
 
 def skn2obj(header, materials, indices, vertices):
     objStr=""
-    if header.matHeader > 0:
+    if header.version > 0:
         objStr+="g mat_%s\n" %(materials[0].name)
     for vtx in vertices:
         objStr+="v %f %f %f\n" %(vtx.position)
@@ -192,7 +192,7 @@ def buildMesh(filepath):
     from os import path
     (header, materials, indices, vertices) = importSKN(filepath)
     ''' 
-    if header.matHeader > 0 and materials[0].numMaterials == 2:
+    if header.version > 0 and materials[0].numMaterials == 2:
         print('ERROR:  Skins with numMaterials = 2 are currently unreadable.  Exiting')
         return{'CANCELLED'} 
     '''
@@ -235,13 +235,17 @@ def buildMesh(filepath):
     #Create UV texture coords
     texList = []
     uvtexName = 'lolUVtex'
-    uvtex = obj.data.uv_textures.new(uvtexName)
-    for k, face in enumerate(obj.data.faces):
-        vtxIdx = face.vertices[:]
-        bl_tface = uvtex.data[k]
-        bl_tface.uv1 = uvList[vtxIdx[0]]
-        bl_tface.uv2 = uvList[vtxIdx[1]]
-        bl_tface.uv3 = uvList[vtxIdx[2]]
+    obj.data.uv_textures.new(uvtexName)
+    uv_layer = obj.data.uv_layers[-1].data  # sets layer to the above texture
+    set = []
+    for k, loop in enumerate(obj.data.loops):
+    	# data.loops contains the vertex of tris
+    	# k/3 = triangle #
+    	# k%3 = vertex number in that triangle
+        v = loop.vertex_index  # "index" number
+        set.append(uvList[v][0])  # u
+        set.append(uvList[v][1])  # v
+    uv_layer.foreach_set("uv", set)
 
     #Set normals
     #Needs to be done after the UV unwrapping 
@@ -281,8 +285,7 @@ def addDefaultWeights(boneList, sknVertices, armatureObj, meshObj):
             boneId = vtx.boneIndex[k]
             weight = vtx.weights[k]
 
-            meshObj.vertex_groups.assign([vtx_idx],
-                    meshObj.vertex_groups[boneId],
+            meshObj.vertex_groups[boneId].add([vtx_idx],
                     weight,
                     'ADD')
 
@@ -314,7 +317,7 @@ def exportSKN(meshObj, outFile):
     #Write header block
     header = sknHeader()
     header.magic = 1122867
-    header.matHeader = 0
+    header.version = 0
     header.numObjects = 1
 
     #create output file 
