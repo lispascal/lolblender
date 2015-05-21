@@ -49,16 +49,18 @@ class sknHeader():
 
 class sknMaterial():
 
-    def __init__(self):
-        #UserDict.__init__(self)
+
+    def __init__(self, name=None, startVertex=None, numVertices=None, startIndex=None, numIndices=None):
+        # # UserDict.__init__(self)
         self.__format__ = '<64s4i'
         self.__size__ = struct.calcsize(self.__format__)
+        
+        self.name = name
+        self.startVertex = startVertex
+        self.numVertices = numVertices
+        self.startIndex = startIndex
+        self.numIndices = numIndices
 
-        self.name = None
-        self.startVertex = None
-        self.numVertices = None
-        self.startIndex = None
-        self.numIndices = None
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
@@ -315,35 +317,32 @@ def addDefaultWeights(boneList, sknVertices, armatureObj, meshObj):
                     weight,
                     'ADD')
 
-def exportSKN(meshObj, outFile):
+def exportSKN(meshObj, outFile, version):
     import bpy
     #Go into object mode & select only the mesh
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
     meshObj.select = True
 
-    numFaces = len(meshObj.data.faces)
+    numFaces = len(meshObj.data.loops) // 3
     
     #Build vertex index list and dictionary of vertex-uv pairs
     indices = []
     vtxUvs = {}
-    for idx, face in enumerate(meshObj.data.faces):
-        vertices = face.vertices[0:]
-        indices.extend(vertices)
+    for idx, loop in enumerate(meshObj.data.loops):
+        vertex = loop.vertex_index
+        indices.append(vertex)
         #The V coordinate need to be flipped back - it was flipped on importing.
-        uvs = meshObj.data.uv_textures['lolUVtex'].data[idx]
-
-        vtxUvs[vertices[0]] = [uvs.uv_raw[0], 1-uvs.uv_raw[1]]
-        vtxUvs[vertices[1]] = [uvs.uv_raw[2] ,1-uvs.uv_raw[3]]
-        vtxUvs[vertices[2]] = [uvs.uv_raw[4], 1-uvs.uv_raw[5]]
-
+        uv = meshObj.data.uv_layers['lolUVtex'].data[idx].uv
+        vtxUvs[vertex] = [uv[0], 1-uv[1]]
+        
     numIndices = len(indices)
     numVertices = len(meshObj.data.vertices)
 
     #Write header block
     header = sknHeader()
     header.magic = 1122867
-    header.version = 0
+    header.version = version
     header.numObjects = 1
 
     #create output file 
@@ -352,10 +351,33 @@ def exportSKN(meshObj, outFile):
     #write header
     header.toFile(sknFid)
 
-    #We're not writing a materials block, so write the numIndices and
+    if version >= 2:
+        numMats = 1        
+        sknFid.write(struct.pack('<1i', numMats))
+        #We are writing a materials block
+        mat = sknMaterial(b'test', 0, numVertices, 0, numIndices)
+        mat.toFile(sknFid)
+
+    # version 4 has an int = 0 here
+    if version == 4:
+        sknFid.write(struct.pack('<1i', 0))
+
+    # write the numIndices and
     #numVertices next
     buf = struct.pack('<2i', numIndices, numVertices)
     sknFid.write(buf)
+
+    if version == 4:  # "unknown" block of version 4 skn
+        buf = []
+        buf.append(byte(52))  # always 52, size of vertex object?
+        for i in range(0, 7):
+            buf.append(byte(0))  # always 0
+        for i in range(0, 39):
+            buf.append(byte(128)) # half value for everything inbetween
+        buf.append(byte(67))
+        buff = struct.pack('<48b', buf)
+        sknFid.write(buff)
+
 
     #write face indices
     for idx in indices:
@@ -413,6 +435,9 @@ def exportSKN(meshObj, outFile):
 
         #writeout the vertex
         sknVtx.toFile(sknFid)
+    
+    if version >= 2:  # some extra ints in v2+. not sure what they do, non-0 in v4?
+        sknFid.write(struct.pack('<3i', 0, 0, 0))
 
     #Close the output file
     sknFid.close()

@@ -209,7 +209,7 @@ named 'lolMesh'.  Nothing to export.'''
 
     bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
             True), constraint_orientation='GLOBAL')
-    lolMesh.exportSKN(meshObj, outputFile)
+    lolMesh.exportSKN(meshObj, outputFile, 2)
     bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
             True), constraint_orientation='GLOBAL')
 
@@ -229,7 +229,9 @@ def register():
     bpy.utils.register_class(IMPORT_OT_lol)
     bpy.utils.register_class(IMPORT_OT_sco)
     bpy.types.INFO_MT_file_import.append(menu_func_import)
-    # bpy.types.INFO_MT_file_export.append(menu_func_export)
+
+    bpy.utils.register_class(EXPORT_OT_lol)
+    bpy.types.INFO_MT_file_export.append(menu_func_export)
 
 def unregister():
     bpy.types.INFO_MT_file_import.remove(menu_func_import)
