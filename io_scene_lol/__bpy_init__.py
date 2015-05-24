@@ -122,7 +122,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         SKL_FILEPATH=path.join(MODEL_DIR, SKL_FILE)
         #sklHeader, boneDict = lolSkeleton.importSKL(SKL_FILEPATH)
         sklHeader, boneList, reorderedBoneList = lolSkeleton.importSKL(SKL_FILEPATH)
-        lolSkeleton.buildSKL(boneList)
+        lolSkeleton.buildSKL(boneList, sklHeader.version)
         armObj = bpy.data.objects['Armature']
         armObj.name ='lolArmature'
         armObj.data.draw_type = 'STICK'
