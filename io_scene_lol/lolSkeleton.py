@@ -122,7 +122,7 @@ class sklBone():
     def __init__(self):
         self.__format__v12 = '<32sif12f'
         self.__size__v12 = struct.calcsize(self.__format__v12)
-        self.__format__v0 = '<4hi14f'
+        self.__format__v0 = '<4hi22f'
         self.__size__v0 = struct.calcsize(self.__format__v0)
         self.name = None
         self.parent = None
@@ -154,7 +154,7 @@ class sklBone():
             self.name = fields[4]
             twopointone = fields[5]
             self.position = list(fields[6:9])
-            self.position[2] *= 1
+            self.position[2] *= -1.
             self.scale = fields[9:12]
             self.quat = mathutils.Quaternion([
                     - fields[15], fields[12], fields[13],
@@ -167,11 +167,12 @@ class sklBone():
             self.matrix2[3] = [0, 0, 0, 1]
             # print(self.matrix)
             self.ct = list(fields[16:19])
+            self.extra = list(fields[19:27])
             # print("q%s" % self.quat)
             # print("m%s" % self.matrix)
             # print("p%s" % self.position)
             # print("c%s" % self.ct)
-            sklFile.seek(sklFile.tell()+32)  # skip 32 padding bytes
+            # sklFile.seek(sklFile.tell()+32)  # skip 32 padding bytes
 
         else:
             raise ValueError('unhandled version number', version)
@@ -235,6 +236,7 @@ def importSKL(filepath):
         for k in range(header.numBones):
             boneList.append(sklBone())
             boneList[k].fromFile(sklFid, header.version)
+        print("(off1) from %s to %s" % (sklFid.tell(), header.offset1))
         sklFid.seek(header.offset1)
         # indices for version 4 animation
         header.boneIDMap = {}
@@ -245,7 +247,7 @@ def importSKL(filepath):
             header.boneIDMap[anmID] = sklID
 
 
-
+        print("(offstr) from %s to %s" % (sklFid.tell(), header.offsetToStrings))
         sklFid.seek(header.offsetToStrings)
         for i in range(0, header.numBones):
             name = []
@@ -257,12 +259,13 @@ def importSKL(filepath):
                     v.decode() for v in name[0:end]).lower()
 
         # below is technically earlier in file than above
+        print("(offani) from %s to %s" % (sklFid.tell(), header.offsetAnimationIndices))
         sklFid.seek(header.offsetAnimationIndices)
         for i in range(0, header.numBoneIDs):
             boneId = struct.unpack('<h', sklFid.read(
                     struct.calcsize('<h')))[0]
             reorderedBoneList.append(boneList[boneId].copy())
-
+        print("end: %s" % sklFid.tell())
 
 
     sklFid.close()
@@ -422,7 +425,7 @@ def buildSKL(boneList, version):
 
     bones = arm.edit_bones
     #Remove the default bone
-    # bones.remove(bones[0])
+    bones.remove(bones[0])
     #import the bones
     if version in [1,2]:
         for boneID, bone in enumerate(boneList):
@@ -468,16 +471,20 @@ def buildSKL(boneList, version):
                     bone.align_orientation(bone.parent)
     elif version == 0:
         for boneID, bone in enumerate(boneList):
+            #algorithm here based off of above, and LolViewer code
             #If this bone is a child, find the parent's tail and attach this bone's
             #head to it
-            boneHead = mathutils.Vector([0,0,0])
             parentTail = mathutils.Vector([0,0,0])
             boneTail = mathutils.Vector(bone.position)
+
             boneParentID = bone.parent
             boneName = bone.name.rstrip('\x00')
             # debug
-            # if boneName.count("uparm"):
-            #     print("%s, id:%s\nc%s\np:%s\nq:%s\ns:%s" % (bone.name, boneID, bone.ct, bone.position, bone.quat, bone.scale))
+            # if boneName.count("weapon"):
+            #     print("prev: %s" % boneList[boneID-1].name)
+            #     print("%s, id:%s\np:%s\nq:%s\ns:%s" % (bone.name, boneID, bone.position, bone.quat, bone.scale))
+            #     print("c%s" % bone.ct)
+            #     # print("E%s" % bone.extra)
 
             newBone = arm.edit_bones.new(boneName)
             if boneParentID > -1:
@@ -485,19 +492,17 @@ def buildSKL(boneList, version):
                 parentBone = arm.edit_bones[boneParentName]
 
                 newBone.parent = parentBone
-                # bone.quat = boneList[boneParentID].quat * bone.quat
-                parentTail = parentBone.tail
-                #build chains of successively parented bones
-                if boneParentID == (boneID - 1):
-                    # parentBone.tail = newBone.head
-                    newBone.use_connect = True 
+                parQuat = boneList[boneParentID].quat
+                boneTail.rotate(parQuat)  # only apply parent rotation to self
+                bone.quat = parQuat * bone.quat  # for children
+                
 
-            
-            #If this is a root bone set the y offset to 0 for the head element
-            #if boneParentID == -1:
-            #    newBone.head[:] = (boneHead[0],0,boneHead[2])
-            newBone.head = parentTail + boneHead
-            # boneTail.rotate(bone.quat)
+
+
+                parentTail = parentBone.tail
+                # newBone.use_connect = True
+
+            newBone.head = parentTail
             newBone.tail = parentTail + boneTail
 
 
