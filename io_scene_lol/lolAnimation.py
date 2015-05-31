@@ -131,7 +131,8 @@ class anmBone():
         if version in [0,1,2,3]:
             fields = struct.unpack(self.__format__i, 
                     anmFile.read(self.__size__i))
-            self.name = bytes.decode(fields[0])
+            name = bytes.decode(fields[0])
+            self.name = name.rstrip('\0')
             self.unknown = fields[1]
 
         else:
@@ -142,11 +143,13 @@ class anmBone():
         if version in [0,1,2,3]:
             fields = struct.unpack(self.__format__f,
                     anmFile.read(self.__size__f))
-            orientation = fields[0:4]
-            position = fields[4:7]
-            self.orientations.push(orientation)
-            self.positions.push(position)
-        else
+            orientation = mathutils.Quaternion([-fields[3], fields[0],
+                    fields[1], -fields[2]])
+            position = mathutils.Vector(fields[4:7])
+            position.z *= -1
+            self.orientations.append(orientation)
+            self.positions.append(position)
+        else:
             raise ValueError("Unhandled Bone version number", version)
 
             
@@ -187,10 +190,57 @@ def importANM(filepath):
     return header, boneList
 
 
-def applyANM(boneList, version):
+def applyANM(header, boneList):
     import bpy
-    raise NotImplementedError("Function not yet implemented for any version")
     
+    # http://blender.stackexchange.com/a/8392
+    # http://blender.stackexchange.com/a/31709
+
+    try:
+        bpy.ops.object.mode_set(mode='EDIT')
+    except:
+        pass
+
+    scene = bpy.context.scene
+    ob = bpy.context.object
+    eb = ob.data.edit_bones
+    bs = ob.data.bones
+    pb = ob.pose.bones
+    if header.version in [0, 1, 2, 3]:
+        scene.frame_end = header.numFrames - 1
+        scene.frame_start = 0
+        for f in range(header.numFrames):
+            print("frame %s processing" % f)
+            scene.frame_set(f)
+            boneOrientations = {}
+            for b in boneList:
+                n = b.name.lower()
+                boneOrientations[n] = b.orientations[f]
+                armatureBone = eb[n]
+                poseBone = pb[n]
+                bone = bs[n]
+
+                if poseBone.parent:
+                    # armatureBone.head = poseBone.parent.tail
+                    parOrientation = boneOrientations[poseBone.parent.name]
+                    # bPos.rotate(parOrientation)
+                    boneOrientations[n] = parOrientation * b.orientations[f]
+                    # armatureBone.head = armatureBone.parent.tail
+                else:
+                    parOrientation = mathutils.Quaternion([1,0,0,0])
+                bPos = b.positions[f]
+                poseBone.location = bPos
+                poseBone.rotation_quaternion = parOrientation
+                # armatureBone.tail = bPos
+                for dp in ["rotation_quaternion", "location"]:
+                    pb[n].keyframe_insert(data_path=dp, frame=f)
+            # ob.keyframe_insert(data_path="pose")
+                
+
+    elif header.version == 4:
+        raise NotImplementedError("version 4 not supported yet")
+    else:
+        raise ValueError("Version not supported", header.version)
     # Once implemented, this code will probably follow a relatively simply
     # structure to bone creation. Althought it will be:
     # go by frame->insert key frame

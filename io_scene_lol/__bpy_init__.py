@@ -20,7 +20,7 @@
 import bpy
 from bpy import props
 from bpy_extras.io_utils import ImportHelper, ExportHelper
-from . import lolMesh, lolSkeleton
+from . import lolMesh, lolSkeleton, lolAnimation
 from os import path
 
 __bpydoc__="""
@@ -214,7 +214,8 @@ def import_animation(MODEL_DIR="", ANM_FILE=""):
     if ANM_FILE:
         ANM_FILEPATH=path.join(MODEL_DIR, ANM_FILE)
 
-    animation = lolAnimation.importAnm(ANM_FILEPATH)
+    animationHeader, boneList = lolAnimation.importANM(ANM_FILEPATH)
+    lolAnimation.applyANM(animationHeader, boneList)
     
 
 def export_char(outputFile, meshObj = None):
