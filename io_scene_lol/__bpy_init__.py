@@ -70,6 +70,30 @@ class IMPORT_OT_lol(bpy.types.Operator, ImportHelper):
                
         return {'FINISHED'}
 
+class IMPORT_OT_lolanm(bpy.types.Operator, ImportHelper):
+    bl_label="Import LoL Animation"
+    bl_idname="import.lolanm"
+
+    ANM_FILE = props.StringProperty(name='Animation', description='Animation .anm file')
+    MODEL_DIR = props.StringProperty()
+       
+    def draw(self, context):
+        layout = self.layout
+        fileProps = context.space_data.params
+        self.MODEL_DIR = fileProps.directory
+        
+        selectedFileExt = path.splitext(fileProps.filename)[-1].lower()
+        if selectedFileExt == '.anm':
+            self.ANM_FILE = fileProps.filename
+        box = layout.box()
+        box.prop(self.properties, 'ANM_FILE')
+        
+    def execute(self, context):
+        import_animation(MODEL_DIR=self.MODEL_DIR,
+                    ANM_FILE=self.ANM_FILE)
+               
+        return {'FINISHED'}
+
 class EXPORT_OT_lol(bpy.types.Operator, ExportHelper):
     '''Export a mesh as a League of Legends .skn file'''
 
@@ -181,6 +205,17 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         # meshObj.data.uv_textures[0].data[0].use_image = True
         # meshObj.data.uv_textures[0].data[0].blend_type = 'ALPHA'
 
+def import_animation(MODEL_DIR="", ANM_FILE=""):
+    '''Import an Animation for a LoL character
+    MODEL_DIR:  Base directory of the animation you wish to import.
+    ANM_FILE:  .anm animation file
+    '''
+
+    if ANM_FILE:
+        ANM_FILEPATH=path.join(MODEL_DIR, ANM_FILE)
+
+    animation = lolAnimation.importAnm(ANM_FILEPATH)
+    
 
 def export_char(outputFile, meshObj = None):
     '''Exports a mesh as a LoL .skn file.
@@ -219,6 +254,7 @@ def import_sco(filepath):
 
 def menu_func_import(self, context):
     self.layout.operator(IMPORT_OT_lol.bl_idname, text='League of Legends Character (.skn;.skl)')
+    self.layout.operator(IMPORT_OT_lolanm.bl_idname, text='League of Legends Animation(.anm)')
     self.layout.operator(IMPORT_OT_sco.bl_idname, text='League of Legends Particle (.sco)')
 
 
@@ -227,6 +263,7 @@ def menu_func_export(self, context):
 
 def register():
     bpy.utils.register_class(IMPORT_OT_lol)
+    bpy.utils.register_class(IMPORT_OT_lolanm)
     bpy.utils.register_class(IMPORT_OT_sco)
     bpy.types.INFO_MT_file_import.append(menu_func_import)
 
