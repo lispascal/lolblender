@@ -32,7 +32,23 @@ class anmHeader():
     id                  char[8]     8       
     version             uint        4       Version number.
 
-    v0-3
+    v1
+        magic               char[12]     12       "magic"
+        numBones            uint        4
+        offset?             uint        4
+        numFrames           uint        4
+        unknown             uint        4       leona_joke_60fps is 10.6333, taunt is 6.9333
+                                                perhaps this is time per frame
+        playbackFPS         float       4
+        2                   float       4
+        10                  float       4
+        2                   float       4
+        10                  float       4
+        0.01                float       4
+        0.2                 float       4
+        more?               ?           ?
+
+    v0,2-3
         magic               uint        4       "magic" number
         numBones            uint        4       Number of bones
         numFrames           uint        4       Number of frames
@@ -44,7 +60,7 @@ class anmHeader():
         numBones            uint        4       Number of bones
         numFrames           uint        4       Number of frames
         timePerFrame        float       4       1/fps
-        offsets             uint[3]     12      offsets within file
+        offsets             uint[3]     12      offsets
         positionOffset      uint        4
         orientationOffset   uint        4
         indexOffset         uint        4
@@ -52,7 +68,8 @@ class anmHeader():
 
 
     
-    total size v0-3                     28 bytes
+    total size v0,2-3                   28 bytes
+    total size v1                       68+ bytes
     total size v4                       76 bytes
 
     """
@@ -60,8 +77,10 @@ class anmHeader():
     def __init__(self):
         self.__format__i = '<8si'  # initial part
         self.__size__i = struct.calcsize(self.__format__i)
-        self.__format__v03 = '<4i'  # part for version 0-3
-        self.__size__v03 = struct.calcsize(self.__format__v03)
+        self.__format__v1 = '<12s4i7f'  # part for version 1
+        self.__size__v1 = struct.calcsize(self.__format__v1)
+        self.__format__v023 = '<4i'  # part for version 0-3
+        self.__size__v023 = struct.calcsize(self.__format__v023)
         self.__format__v4 = '<i3f2if9i'  # part for version 4
         self.__size__v4 = struct.calcsize(self.__format__v4)
         self.id = None
@@ -76,9 +95,22 @@ class anmHeader():
         anmFile.seek(0)
         beginning = struct.unpack(self.__format__i, anmFile.read(self.__size__i))
         (self.id, self.version) = beginning
-        if self.version in [0, 1, 2, 3]:  # versions 0-3
-            rest = struct.unpack(self.__format__v03, anmFile.read(self.__size__v03))
+
+        if self.version in [0, 2, 3]:  # versions 0-3
+            rest = struct.unpack(self.__format__v023, anmFile.read(self.__size__v023))
             (self.magic, self.numBones, self.numFrames, self.playbackFPS) = rest
+            print("anmMagic: %s" % self.magic)
+            print("anmNumBones: %s" % self.numBones)
+            print("anmnumFrames: %s" % self.numFrames)
+            print("anmplaybackFPS: %s" % self.playbackFPS)
+        elif self.version == 1:  # version 1
+            rest = struct.unpack(self.__format__v1, anmFile.read(self.__size__v1))
+            (self.magic, self.numBones, self.offset, self.numFrames, 
+                    self.unknown, self.playbackFPS) = rest[0:6]
+            if (rest[6] != 2 or rest[7] != 10 or rest[8] != 2 or rest[9] != 10 or 
+                    rest[10] != .01 or rest[11] != 0.2):
+                print("ANM file headers unexpected values")
+            raise ValueError("Version %s ANM not supported" % self.version)
         elif self.version == 4:  # version 4
             rest = struct.unpack(self.__format__v4, anmFile.read(self.__size__v4))
             self.magic = rest[0]
@@ -92,6 +124,10 @@ class anmHeader():
             self.orientationOffset = rest[11]
             self.indexOffset = rest[12]
             self.offsets2 = rest[13:16]
+        else:
+            raise ValueError("Version %s ANM not supported" % self.version)
+        print("Version: %s" % self.version)
+        print("magic: %s" % self.magic)
     
     def toFile(self, anmFile):
         """Writes the header object to a raw binary file"""
@@ -102,7 +138,7 @@ class anmHeader():
 
 class anmBone():
     """LoL Bone structure format
-    v0-3
+    v0,2-3
     name        char[32]    32      name of bone (with padding \0's)
     unknown     int         4       
 
@@ -112,8 +148,8 @@ class anmBone():
 
     total                   36 + (28 * Number of Frames)
 
-    v4
-    Animation information is separated by frame for version 4
+    v1,4
+    Animation information is separated by frame for version 4 and probably v1
     """
     def __init__(self):
         self.__format__i = '<32si'  # initial
@@ -128,10 +164,19 @@ class anmBone():
 
     def metaDataFromFile(self, anmFile, version):
         """Reads animation bone meta-data from a binary file fid"""
-        if version in [0,1,2,3]:
+        if version in [0,2,3]:
             fields = struct.unpack(self.__format__i, 
                     anmFile.read(self.__size__i))
+            # for e in ['utf-8', 'utf-16', 'ascii', 'latin-1', 'iso-8859-1',
+            #         'gb2312', 'Windows-1251', 'windows-1252']:
+            #     try:
+            #         name = bytes.decode(fields[0], e)
+            #         print("%s: %s" % (e, name) )
+            #     except UnicodeDecodeError:
+            #         print("%s failed" % e)
+            #         pass
             name = bytes.decode(fields[0])
+
             self.name = name.rstrip('\0')
             self.unknown = fields[1]
 
@@ -140,13 +185,16 @@ class anmBone():
 
     def frameDataFromFile(self, anmFile, version):
         """Reads animation bone frame data from a binary file fid"""
-        if version in [0,1,2,3]:
+        if version in [0,2,3]:
             fields = struct.unpack(self.__format__f,
                     anmFile.read(self.__size__f))
             orientation = mathutils.Quaternion([-fields[3], fields[0],
                     fields[1], -fields[2]])
             position = mathutils.Vector(fields[4:7])
             position.z *= -1
+            if(self.name.count("shield")):
+                print("o:%s" % orientation)
+                print("p:%s" % position)
             self.orientations.append(orientation)
             self.positions.append(position)
         else:
@@ -177,7 +225,9 @@ def importANM(filepath):
         for i in range(header.numBones):
             boneList.append(anmBone())
             boneList[i].metaDataFromFile(anmFid, header.version)
+            print("bone %s: %s" % (i, boneList[i].name))
             for j in range(header.numFrames):
+                # print(j)
                 boneList[i].frameDataFromFile(anmFid, header.version)
 
     elif header.version == 4:
@@ -206,7 +256,8 @@ def applyANM(header, boneList):
     eb = ob.data.edit_bones
     bs = ob.data.bones
     pb = ob.pose.bones
-    if header.version in [0, 1, 2, 3]:
+
+    if header.version in [0, 2, 3]:
         scene.frame_end = header.numFrames - 1
         scene.frame_start = 0
         for f in range(header.numFrames):
@@ -214,7 +265,7 @@ def applyANM(header, boneList):
             scene.frame_set(f)
             boneOrientations = {}
             for b in boneList:
-                n = b.name.lower()
+                n = b.name
                 boneOrientations[n] = b.orientations[f]
                 armatureBone = eb[n]
                 poseBone = pb[n]

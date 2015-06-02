@@ -256,7 +256,7 @@ def importSKL(filepath):
                     name.append(sklFid.read(1))
             end = name.index(b'\0')
             boneList[i].name = ''.join(
-                    v.decode() for v in name[0:end]).lower()
+                    v.decode() for v in name[0:end])
 
         # below is technically earlier in file than above
         print("(offani) from %s to %s" % (sklFid.tell(), header.offsetAnimationIndices))
@@ -316,11 +316,17 @@ def buildSKL(boneList, version):
                     parentBone.tail = newBone.head
                     newBone.use_connect = True
 
+            # if newBone.length == 0:
+            #     newBone.length = 10
+            if newBone.head == newBone.tail:
+                newBone.tail.y += .001
 
         #Final loop through bones.  Find bones w/out children & align to parent (for
         #now
 
         for bone in arm.edit_bones:
+            if bone.length == 0:
+                bone.length = 1
             if len(bone.children) == 0:
                 bone.length = 10
                 #If the orphan bone has a parent
