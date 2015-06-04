@@ -312,9 +312,12 @@ def buildSKL(boneList, version):
                 parentBone = arm.edit_bones[boneParentName]
                 newBone.parent = parentBone
                 #build chains of successively parented bones
-                if boneParentID == (boneID - 1):
+                # if boneParentID == (boneID - 1):
+                if len(parentBone.children) == 1: 
                     parentBone.tail = newBone.head
                     newBone.use_connect = True
+
+            print("%s, p:%s" % (boneName, boneList[bone.parent].name if bone.parent > -1 else None))
 
             # if newBone.length == 0:
             #     newBone.length = 10
@@ -334,12 +337,22 @@ def buildSKL(boneList, version):
                     bone.align_orientation(bone.parent)
     elif version == 0:
         print(len(boneList))
+        children = {}  # indexed by boneID, gives list of children names
+        for boneID, bone in enumerate(boneList):
+            children[boneID] = {'buff':None,
+                    'all':[]}
+            if bone.parent > -1:
+                if bone.name.isupper():
+                    children[bone.parent]['buff'] = bone.name
+                children[bone.parent]['all'].append(bone.name)
+
+
         for boneID, bone in enumerate(boneList):
             #algorithm here based off of above, and LolViewer code
             #If this bone is a child, find the parent's tail and attach this bone's
             #head to it
-            parentTail = mathutils.Vector([0,0,0])
-            boneTail = mathutils.Vector(bone.position)
+            parentPos = mathutils.Vector([0,0,0])
+            boneHead = mathutils.Vector(bone.position)
 
             boneParentID = bone.parent
             boneName = bone.name.rstrip('\x00')
@@ -349,7 +362,7 @@ def buildSKL(boneList, version):
             #     print("%s, id:%s\np:%s\nq:%s\ns:%s" % (bone.name, boneID, bone.position, bone.quat, bone.scale))
             #     print("c%s" % bone.ct)
             #     # print("E%s" % bone.extra)
-            print(boneName)
+            print("%s, p:%s" % (boneName, boneList[bone.parent].name if bone.parent > -1 else None))
             newBone = arm.edit_bones.new(boneName)
             if boneParentID > -1:
                 boneParentName = boneList[boneParentID].name
@@ -357,19 +370,45 @@ def buildSKL(boneList, version):
 
                 newBone.parent = parentBone
                 parQuat = boneList[boneParentID].quat
-                boneTail.rotate(parQuat)  # only apply parent rotation to self
+                boneHead.rotate(parQuat)  # only apply parent rotation to self
                 bone.quat = parQuat * bone.quat  # for children
-                
+
+                # parentPos = mathutils.Vector(boneList[boneParentID].position)
+                parentPos = parentBone.head
+            newBone.head = parentPos + boneHead
+
+        # set bones with children to be average of the
+        # for boneID, bone in enumerate(boneList):
+        #     numChildren = len(children[boneID]['all'])
+        #     if numChildren > 0:
+        #         pos = mathutils.Vector([0,0,0])
+        #         for b in children[boneID]['all']:
+        #             pos += arm.edit_bones[b].head/numChildren
+        #         arm.edit_bones[bone.name].tail = pos
 
 
-
-                parentTail = parentBone.tail
-                # newBone.use_connect = True
-
-            newBone.head = parentTail
-            newBone.tail = parentTail + boneTail
-            if newBone.head == newBone.tail:
-                newBone.tail.y += .001
+        for bone in arm.edit_bones:
+            if bone.length == 0:
+                bone.length = 1
+            if len(bone.children) == 0:  # bones without children get aligned to parents?
+                bone.length = 10
+                if bone.parent:
+                    if bone.parent.tail != bone.head: # if parent isn't chained
+                                                      # directly to this bone
+                        bone.tail = bone.head         # then this is "end" pos
+                        bone.head = bone.parent.tail
+                    else:
+                        bone.align_orientation(bone.parent)
+            else:   # for bones w/ children, set tail to avg of all direct
+                    # children, or buffbone
+                numChildren = len(bone.children)
+                pos = mathutils.Vector([0,0,0])
+                for child in bone.children:
+                    if child.name.isupper():  # if buffbone, set pos to it
+                        pos = child.head
+                        break
+                    pos += child.head/numChildren
+                bone.tail = pos
 
     bpy.ops.object.mode_set(mode='OBJECT')
 

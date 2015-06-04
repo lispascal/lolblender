@@ -188,8 +188,9 @@ class anmBone():
         if version in [0,2,3]:
             fields = struct.unpack(self.__format__f,
                     anmFile.read(self.__size__f))
-            orientation = mathutils.Quaternion([-fields[3], fields[0],
-                    fields[1], -fields[2]])
+            # orientation = mathutils.Quaternion([-fields[3], fields[0],
+            #         fields[1], -fields[2]])
+            orientation = mathutils.Quaternion(fields[0:4])
             position = mathutils.Vector(fields[4:7])
             position.z *= -1
             if(self.name.count("shield")):
@@ -257,6 +258,18 @@ def applyANM(header, boneList):
     bs = ob.data.bones
     pb = ob.pose.bones
 
+    restPose = {}
+    for b in bs:
+        rotQuat = b.matrix.to_4x4().decompose()[1]
+        rotInv = rotQuat.inverted()
+        h = b.head
+        t = b.tail
+        restPose[b.name] = {'rotQuat' : rotQuat,
+                'rotInv' : rotInv,
+                'hPos' : h,
+                'tPos' : t
+        }
+
     if header.version in [0, 2, 3]:
         scene.frame_end = header.numFrames - 1
         scene.frame_start = 0
@@ -264,24 +277,32 @@ def applyANM(header, boneList):
             print("frame %s processing" % f)
             scene.frame_set(f)
             boneOrientations = {}
+            bonePositions = {}
             for b in boneList:
                 n = b.name
                 boneOrientations[n] = b.orientations[f]
+                bonePositions[n] = b.positions[f]
+
                 armatureBone = eb[n]
                 poseBone = pb[n]
                 bone = bs[n]
 
                 if poseBone.parent:
                     # armatureBone.head = poseBone.parent.tail
-                    parOrientation = boneOrientations[poseBone.parent.name]
+                    parentName = poseBone.parent.name
+                    parOrientation = boneOrientations[parentName]
                     # bPos.rotate(parOrientation)
-                    boneOrientations[n] = parOrientation * b.orientations[f]
+                    # boneOrientations[n] = parOrientation * b.orientations[f]
+                    # bonePositions[n] = bonePositions[parentName] + parOrientation * b.positions[f]
                     # armatureBone.head = armatureBone.parent.tail
                 else:
                     parOrientation = mathutils.Quaternion([1,0,0,0])
-                bPos = b.positions[f]
-                poseBone.location = bPos
-                poseBone.rotation_quaternion = parOrientation
+
+                wantedPos = bonePositions[n]
+                restPos = restPose[n]['tPos']
+                poseBone.location = wantedPos  - restPos
+                # poseBone.rotation_quaternion = parOrientation
+                poseBone.rotation_quaternion = boneOrientations[n]
                 # armatureBone.tail = bPos
                 for dp in ["rotation_quaternion", "location"]:
                     pb[n].keyframe_insert(data_path=dp, frame=f)
