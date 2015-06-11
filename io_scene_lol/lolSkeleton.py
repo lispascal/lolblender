@@ -139,6 +139,7 @@ class sklBone():
             self.parent, self.scale = fields[1:3]
             #Strip null \x00's from the name
 
+            #make z negative
             self.matrix[0] = list( fields[3:7] )
             self.matrix[1] = list( fields[7:11] )
             self.matrix[2] = list( fields[11:15] )
@@ -154,19 +155,21 @@ class sklBone():
             self.name = fields[4]
             twopointone = fields[5]
             self.position = list(fields[6:9])
-            self.position[2] *= -1.
+            self.position[2] *= -1. # make z negative
             self.scale = fields[9:12]
             self.quat = mathutils.Quaternion([
                     - fields[15], fields[12], fields[13],
-                    -fields[14]])
-            self.matrix = self.quat.to_matrix()
-            self.matrix2 = [[],[],[],[]]
-            for i in range(0,3):
-                self.matrix2[i] = [self.matrix[i][0], self.matrix[i][1], 
-                        self.matrix[i][2], self.position[0]]
-            self.matrix2[3] = [0, 0, 0, 1]
+                    - fields[14]])
+            # self.matrix = self.quat.to_matrix()
+            # self.matrix2 = [[],[],[],[]]
+            # for i in range(0,3):
+            #     self.matrix2[i] = [self.matrix[i][0], self.matrix[i][1], 
+            #             self.matrix[i][2], self.position[0]]
+            # self.matrix2[3] = [0, 0, 0, 1]
             # print(self.matrix)
             self.ct = list(fields[16:19])
+            for i in [1,2]:
+                self.ct[i] *= -1.
             self.extra = list(fields[19:27])
             # print("q%s" % self.quat)
             # print("m%s" % self.matrix)
@@ -210,6 +213,7 @@ def importSKL(filepath):
 
     #Read the file header to get # of bones
     header.fromFile(sklFid)
+    print("SKL version:%s" % header.version)
     if header.version in [1, 2]:
         #Read in the bones
         for k in range(header.numBones):
@@ -257,6 +261,23 @@ def importSKL(filepath):
             end = name.index(b'\0')
             boneList[i].name = ''.join(
                     v.decode() for v in name[0:end])
+            if boneList[i].name.lower() in ['root', 'r_weapon', 'shield',
+                    'l_shield', 'r_shield', 'buffbone_cstm_shield_top',
+                    'buffbone_glb_weapon_1', 'l_hip']:
+                bone = boneList[i]
+                print("%s:" % bone.name)
+                print("p:%s" % bone.position)
+                print("ct:%s" % bone.ct)
+                print("q:%s" % bone.quat)
+                if bone.parent > -1:
+                    tct = mathutils.Vector(bone.ct)
+                    tct.rotate(boneList[bone.parent].quat)
+                    print("tct:%s" % tct)
+
+                print("Mags: p:%f, ct:%f" % (mathutils.Vector(
+                        bone.position).length, mathutils.Vector(
+                        bone.ct).length))
+                # print("ex:%s" % boneList[i].extra)
 
         # below is technically earlier in file than above
         print("(offani) from %s to %s" % (sklFid.tell(), header.offsetAnimationIndices))
@@ -315,7 +336,7 @@ def buildSKL(boneList, version):
                 # if boneParentID == (boneID - 1):
                 if len(parentBone.children) == 1: 
                     parentBone.tail = newBone.head
-                    newBone.use_connect = True
+                    # newBone.use_connect = True
 
             print("%s, p:%s" % (boneName, boneList[bone.parent].name if bone.parent > -1 else None))
 
@@ -337,15 +358,6 @@ def buildSKL(boneList, version):
                     bone.align_orientation(bone.parent)
     elif version == 0:
         print(len(boneList))
-        children = {}  # indexed by boneID, gives list of children names
-        for boneID, bone in enumerate(boneList):
-            children[boneID] = {'buff':None,
-                    'all':[]}
-            if bone.parent > -1:
-                if bone.name.isupper():
-                    children[bone.parent]['buff'] = bone.name
-                children[bone.parent]['all'].append(bone.name)
-
 
         for boneID, bone in enumerate(boneList):
             #algorithm here based off of above, and LolViewer code
@@ -376,6 +388,8 @@ def buildSKL(boneList, version):
                 # parentPos = mathutils.Vector(boneList[boneParentID].position)
                 parentPos = parentBone.head
             newBone.head = parentPos + boneHead
+            if newBone.length == 0:
+                newBone.tail[1] += .001
 
         # set bones with children to be average of the
         # for boneID, bone in enumerate(boneList):
@@ -404,7 +418,8 @@ def buildSKL(boneList, version):
                 numChildren = len(bone.children)
                 pos = mathutils.Vector([0,0,0])
                 for child in bone.children:
-                    if child.name.isupper():  # if buffbone, set pos to it
+                    if (child.name.isupper() or  # if buffbone, set pos to it
+                            child.name.lower().count('buffbone')):
                         pos = child.head
                         break
                     pos += child.head/numChildren

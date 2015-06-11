@@ -29,8 +29,6 @@ class sknHeader():
         self.magic = 0
         self.version = 0
         self.numObjects = 0
-        self.UNKNOWN_BLOCK_SIZE = 48
-        #self.numMaterials = 0
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
@@ -50,7 +48,8 @@ class sknHeader():
 class sknMaterial():
 
 
-    def __init__(self, name=None, startVertex=None, numVertices=None, startIndex=None, numIndices=None):
+    def __init__(self, name=None, startVertex=None,
+            numVertices=None, startIndex=None, numIndices=None):
         # # UserDict.__init__(self)
         self.__format__ = '<64s4i'
         self.__size__ = struct.calcsize(self.__format__)
@@ -82,6 +81,69 @@ class sknMaterial():
 %d, 'numVertices':%d, 'startIndex': %d, 'numIndices': %d}"\
         %(self.__format__, self.__size__, self.name, self.startVertex,
                 self.numVertices, self.startIndex, self.numIndices)
+
+
+
+class sknMetaData():
+    def __init__(self, part1=0, numIndices=None, numVertices=None, metaDataBlock=None):
+        # # UserDict.__init__(self)
+        self.__format__v12 = '<2i'
+        self.__format__v4 = '<3i48b'
+        self.__size__v12 = struct.calcsize(self.__format__v12)
+        self.__size__v4 = struct.calcsize(self.__format__v4)
+        
+        self.part1 = part1
+        self.numIndices = numIndices
+        self.numVertices = numVertices
+        if metaDataBlock is not None:
+            self.metaDataBlock = metaDataBlock
+        else:
+            self.metaDataBlock = [0 for x in range(0,48)]
+            self.metaDataBlock[0] = 52
+            self.metaDataBlock[47] = 67
+
+    def fromFile(self, sknFid, version):
+        if version in [1,2]:
+            buf = sknFid.read(self.__size__v12)
+            fields = struct.unpack(self.__format__v12, buf)
+            (self.numIndices, self.numVertices) = fields
+        elif version in [4]:
+            buf = sknFid.read(self.__size__v4)
+            fields = struct.unpack(self.__format__v4, buf)
+            (self.part1, self.numIndices, self.numVertices) = fields[0:3]
+            self.metaDataBlock = fields[3:51]
+        else:
+            raise ValueError("Version %s not supported" % version)
+        self.version = version
+
+
+    def toFile(self, sknFid, version):
+        if version in [1,2]:
+            buf = struct.pack(self.__format__v12, self.numIndices,
+                    self.numVertices)
+            sknFid.write(buf)
+        elif version in [4]:
+            buf = struct.pack(self.__format__v4, self.part1,
+                    self.numIndices, self.numVertices, *self.metaDataBlock[0:48])
+            sknFid.write(buf)
+        else:
+            raise ValueError("Version %s not supported" % version)
+        
+
+    def __str__(self):
+        if self.version in [1,2]:
+            return "{'version': %s, '__format__': %s, '__size__': %d, 'numIndices': %d, \
+                    'numVertices': %d}" % (self.version, self.__format__v12,
+                    self.__size__v12, self.numIndices, self.numVertices)
+        elif self.version in [4]:
+            return "{'version': %s, '__format__': %s, '__size__': %d, \
+                    'part1': %d, 'numIndices': %d, 'numVertices': %d, \
+                    'metaDataBlock': %s}" % (self.version, self.__format__v4,
+                    self.__size__v4, self.part1, self.numIndices,
+                    self.numVertices, self.metaDataBlock)
+        else:
+            ValueError('Unsupported version number, or version not set')
+
 
 class sknVertex():
     def __init__(self):
@@ -136,50 +198,23 @@ def importSKN(filepath):
     header.fromFile(sknFid)
 
     materials = []
-    if header.version > 0:
-        buf = sknFid.read(struct.calcsize('<i'))
-        numMaterials = struct.unpack('<i', buf)[0]
+    buf = sknFid.read(struct.calcsize('<i'))
+    numMaterials = struct.unpack('<i', buf)[0]
+    print ("number of Materials: %s" % numMaterials)
+    for k in range(numMaterials):
+        materials.append(sknMaterial())
+        materials[-1].fromFile(sknFid)
 
-        for k in range(numMaterials):
-            materials.append(sknMaterial())
-            materials[-1].fromFile(sknFid)
+    metaData = sknMetaData()
+    metaData.fromFile(sknFid, header.version)
 
-    # version 4 has an extra int here for some reason. Have seen it as zero
-    if header.version >= 4:
-        shouldBeZero = struct.unpack('<i', sknFid.read(struct.calcsize('<i')))[0]
-        if shouldBeZero != 0:
-            print("Warning: unknown value %s is non-zero" % shouldBeZero)
-
-    buf = sknFid.read(struct.calcsize('<2i'))
-    numIndices, numVertices = struct.unpack('<2i', buf)
-
-    if header.version >= 4:
-        header.unknown = []
-        for i in range(0, header.UNKNOWN_BLOCK_SIZE): # is this a checksum, or hash?
-            header.unknown.append(sknFid.read(1)[0])
-            # starts with [52, 0...0] (52, then 7 0s)
-            # coincidentally, 52 (or 0x34) is the size of the vertex objects in bytes (12 int + 4 byte = 52 bytes)
-            # changing that value seemed to cause a failure of the client to load the asset (?)
-            # ends with 67 (0x43)
-            # possibly a hash or checksum of some kind.
-            # Zeroing out the first 8th-23rd (inclusive) bytes of it resulted in no noticeable changes in game
-            # some part of bytes 25-32 contain health bar alignment, vertically
-
-
-
-    '''
-    print(header)
-    for k in materials:
-        print(k) 
-    print(numIndices, numVertices)
-    '''
     indices = []
     vertices = []
-    for k in range(numIndices):
+    for k in range(metaData.numIndices):
         buf = sknFid.read(struct.calcsize('<h'))
         indices.append(struct.unpack('<h', buf)[0])
 
-    for k in range(numVertices):
+    for k in range(metaData.numVertices):
         vertices.append(sknVertex())
         vertices[-1].fromFile(sknFid)
 
@@ -189,11 +224,7 @@ def importSKN(filepath):
 
     sknFid.close()
 
-    return header, materials, indices, vertices
-
-class dummyContext(object):
-    def __init__(self):
-        self.scene = None
+    return header, materials, metaData, indices, vertices
 
 def skn2obj(header, materials, indices, vertices):
     objStr=""
@@ -218,7 +249,7 @@ def skn2obj(header, materials, indices, vertices):
 def buildMesh(filepath):
     import bpy
     from os import path
-    (header, materials, indices, vertices) = importSKN(filepath)
+    (header, materials, metaData, indices, vertices) = importSKN(filepath)
     ''' 
     if header.version > 0 and materials[0].numMaterials == 2:
         print('ERROR:  Skins with numMaterials = 2 are currently unreadable.  Exiting')
@@ -317,8 +348,12 @@ def addDefaultWeights(boneList, sknVertices, armatureObj, meshObj):
                     weight,
                     'ADD')
 
-def exportSKN(meshObj, outFile, version):
+def exportSKN(meshObj, output_filepath, input_filepath, BASE_ON_IMPORT, VERSION):
     import bpy
+
+    if VERSION not in [1,2,4]:
+        raise ValueError("Version %d not supported! Try versions 1, 2, or 4" % VERSION)
+
     #Go into object mode & select only the mesh
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
@@ -340,44 +375,51 @@ def exportSKN(meshObj, outFile, version):
     numVertices = len(meshObj.data.vertices)
 
     #Write header block
-    header = sknHeader()
-    header.magic = 1122867
-    header.version = version
-    header.numObjects = 1
+    if BASE_ON_IMPORT:
+        (import_header, import_mats, import_meta_data, import_indices,
+        import_vertices) = importSKN(input_filepath)
+        header = import_header
+        if VERSION != header.version:
+            raise ValueError("Version chosen to write is not the same as \
+                    version of file imported")
+        
+        numMats = len(import_mats)
+        if numMats > 1:
+            raise ValueError("More than 1 material (%d); not supported" % numMats)
+        matHeaders = import_mats
+
+        meta_data = import_meta_data
+        
+        #override previous #verts, #idxs so no memory error!
+        matHeaders[0].numIndices = numIndices
+        matHeaders[0].numVertices = numVertices
+        meta_data.numIndices = numIndices
+        meta_data.numVertices = numVertices
+    else:
+        header = sknHeader()
+        header.magic = 1122867
+        header.version = VERSION
+        header.numObjects = 1
+
+        numMats = 1
+        matHeaders = []
+        mat = sknMaterial(b'test', 0, numVertices, 0, numIndices)
+        matHeaders.append(mat)
+
+        meta_data = sknMetaData(0, numIndices, numVertices)
 
     #create output file 
-    sknFid = open(outFile, 'wb')
+    sknFid = open(output_filepath, 'wb')
     
     #write header
     header.toFile(sknFid)
-
-    if version >= 2:
-        numMats = 1        
+    if header.numObjects > 0:  # if materials exist
         sknFid.write(struct.pack('<1i', numMats))
         #We are writing a materials block
-        mat = sknMaterial(b'test', 0, numVertices, 0, numIndices)
-        mat.toFile(sknFid)
+        for mat in matHeaders:
+            mat.toFile(sknFid)
 
-    # version 4 has an int = 0 here
-    if version == 4:
-        sknFid.write(struct.pack('<1i', 0))
-
-    # write the numIndices and
-    #numVertices next
-    buf = struct.pack('<2i', numIndices, numVertices)
-    sknFid.write(buf)
-
-    if version == 4:  # "unknown" block of version 4 skn
-        buf = []
-        buf.append(byte(52))  # always 52, size of vertex object?
-        for i in range(0, 7):
-            buf.append(byte(0))  # always 0
-        for i in range(0, 39):
-            buf.append(byte(128)) # half value for everything inbetween
-        buf.append(byte(67))
-        buff = struct.pack('<48b', buf)
-        sknFid.write(buff)
-
+    meta_data.toFile(sknFid, VERSION)
 
     #write face indices
     for idx in indices:
@@ -436,8 +478,10 @@ def exportSKN(meshObj, outFile, version):
         #writeout the vertex
         sknVtx.toFile(sknFid)
     
-    if version >= 2:  # some extra ints in v2+. not sure what they do, non-0 in v4?
-        sknFid.write(struct.pack('<3i', 0, 0, 0))
+    if VERSION >= 2:  # some extra ints in v2+. not sure what they do, non-0 in v4?
+        if header.endTab is None or len(header.endTab) < 3:
+            header.endTab = [0, 0, 0]
+        sknFid.write(struct.pack('<3i', header.endTab[0], header.endTab[1], header.endTab[2]))
 
     #Close the output file
     sknFid.close()

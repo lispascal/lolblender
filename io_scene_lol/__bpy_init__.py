@@ -100,10 +100,35 @@ class EXPORT_OT_lol(bpy.types.Operator, ExportHelper):
     bl_idname="export.lol"
     bl_label = "Export .skn"
 
-    filename_ext = '.skn'
+    VERSION = props.IntProperty(name='Version No.', description='.SKN version number', default=4)
+    OUTPUT_FILE = props.StringProperty(name='Export File', description='File to which model will be exported')
+    BASE_ON_IMPORT = props.BoolProperty(name='Base On Imported SKN', description='Base writing on an imported SKN of choice', default=True)
+    INPUT_FILE = props.StringProperty(name='Import File', description='File to import certain metadata from')
+    MODEL_DIR = props.StringProperty()
 
+    filename_ext = '.skn'
+    def draw(self, context):
+        layout = self.layout
+        fileProps = context.space_data.params
+        self.MODEL_DIR = fileProps.directory
+
+        selectedFileExt = path.splitext(fileProps.filename)[-1].lower()
+        
+        self.OUTPUT_FILE = fileProps.filename
+
+        box = layout.box()
+        box.prop(self.properties, 'VERSION')
+        box.prop(self.properties, 'OUTPUT_FILE')
+        box.prop(self.properties, 'BASE_ON_IMPORT')
+        box.prop(self.properties, 'INPUT_FILE')
+        
     def execute(self, context):
-        export_char(self.properties.filepath)
+        export_char(MODEL_DIR=self.MODEL_DIR,
+                OUTPUT_FILE=self.OUTPUT_FILE,
+                INPUT_FILE=self.INPUT_FILE,
+                BASE_ON_IMPORT=self.BASE_ON_IMPORT,
+                VERSION=self.VERSION)
+
         return {'FINISHED'}
         
 class IMPORT_OT_sco(bpy.types.Operator, ImportHelper):
@@ -155,7 +180,7 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
 
     if SKN_FILE:
         SKN_FILEPATH=path.join(MODEL_DIR, SKN_FILE)
-        sknHeader, materials, indices, vertices = lolMesh.importSKN(SKN_FILEPATH)
+        sknHeader, materials, metaData, indices, vertices = lolMesh.importSKN(SKN_FILEPATH)
         lolMesh.buildMesh(SKN_FILEPATH)
         meshObj = bpy.data.objects['lolMesh']
         bpy.ops.object.select_all(action='DESELECT')
@@ -218,36 +243,48 @@ def import_animation(MODEL_DIR="", ANM_FILE=""):
     lolAnimation.applyANM(animationHeader, boneList)
     
 
-def export_char(outputFile, meshObj = None):
+def export_char(MODEL_DIR='',
+                OUTPUT_FILE='untitled.skn',
+                INPUT_FILE='',
+                BASE_ON_IMPORT=False,
+                VERSION=2):
     '''Exports a mesh as a LoL .skn file.
 
-    outputFile:  Name of file to save the mesh as
-    meshObj:  Blender mesh object to export.  If
-        none is given we will look for one named
-        'lolMesh'
+    MODEL_DIR:      Base directory of the input and output file.
+    OUTPUT_FILE:    Name of the file that will be created.
+    INPUT_FILE:     Name of the file from which certain meta-data will be taken
+    BASE_ON_IMPORT: Indicator on whether to take metadata from INPUT_FILE
+    VERSION:        Version of the SKN we will be making
     '''
     import bpy
 
-    if meshObj == None:
-        #If no mesh object was supplied, try the active selection
-        if bpy.context.object.type =='MESH':
-            meshObj = bpy.context.object
-        #If the selected object wasn't a mesh, try finding one named 'lolMesh'
-        else:
-            try:
-                meshObj = bpy.data.objects['lolMesh']
-            except KeyError:
-                errStr = '''
-                No mesh object supplied, no mesh selected, and no mesh
-named 'lolMesh'.  Nothing to export.'''
-                print(errStr)
-                raise KeyError
+    print("model_dir:%s" % MODEL_DIR)
+    
 
-    bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
-            True), constraint_orientation='GLOBAL')
-    lolMesh.exportSKN(meshObj, outputFile, 2)
-    bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
-            True), constraint_orientation='GLOBAL')
+    #If no mesh object was supplied, try the active selection
+    if bpy.context.object.type =='MESH':
+        meshObj = bpy.context.object
+    #If the selected object wasn't a mesh, try finding one named 'lolMesh'
+    else:
+        try:
+            meshObj = bpy.data.objects['lolMesh']
+        except KeyError:
+            errStr = '''
+            No mesh selected, and no mesh
+            named 'lolMesh'.  Nothing to export.'''
+            print(errStr)
+            raise KeyError
+
+    input_filepath = path.join(MODEL_DIR, INPUT_FILE)
+    output_filepath = path.join(MODEL_DIR, OUTPUT_FILE)
+
+    # Z values of the SKL and such are inverted, but the SKN isn't. This was
+    # left over from previous export trials, probably
+    # bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
+    #         True), constraint_orientation='GLOBAL')
+    lolMesh.exportSKN(meshObj, output_filepath, input_filepath, BASE_ON_IMPORT, VERSION)
+    # bpy.ops.transform.resize(value=(1,1,-1), constraint_axis=(False, False,
+    #         True), constraint_orientation='GLOBAL')
 
 def import_sco(filepath):
     import lolMesh
