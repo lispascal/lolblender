@@ -1,24 +1,25 @@
 # ##### BEGIN GPL LICENSE BLOCK ##### #
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 3
-#  of the License, or (at your option) any later version.
+# lolblender - Python addon to use League of Legends files into blender
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of  MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# Based on the work in "LOLViewer" under GPLv3
+# Animation-specific changes are based on the work in "LOLViewer" under GPLv3
 # (Copyright 2011-2012 James Lammlein, Adrian Astley),
 # and the previous work in this project by Zac Berkowitz on "lolBlender"
 # with adaption done by Pascal Lis (github -> lispascal)
+#
 # Version 4 .anm files are in LOLViewer with the following info: 
 # "Based on the reverse engineering work of Hossein Ahmadi."
 # and this file makes use of that work
@@ -193,9 +194,6 @@ class anmBone():
             orientation = mathutils.Quaternion(fields[0:4])
             position = mathutils.Vector(fields[4:7])
             position.z *= -1
-            if(self.name.count("shield")):
-                print("o:%s" % orientation)
-                print("p:%s" % position)
             self.orientations.append(orientation)
             self.positions.append(position)
         else:
@@ -230,6 +228,8 @@ def importANM(filepath):
             for j in range(header.numFrames):
                 # print(j)
                 boneList[i].frameDataFromFile(anmFid, header.version)
+            print("p:%s\no:%s" % (boneList[i].positions[0],
+                        boneList[i].orientations[0]))
 
     elif header.version == 4:
         print("not supported yet")
@@ -260,14 +260,19 @@ def applyANM(header, boneList):
 
     restPose = {}
     for b in bs:
-        rotQuat = b.matrix.to_4x4().decompose()[1]
-        rotInv = rotQuat.inverted()
-        h = b.head
-        t = b.tail
-        restPose[b.name] = {'rotQuat' : rotQuat,
+        rot = b.matrix.to_4x4().decompose()[1]
+        rotInv = rot.inverted()
+        h = b.head_local
+        if b.parent is not None:
+            ph = b.parent.head_local
+        else:
+            ph = mathutils.Vector([0,0,0])
+        h_rel = h - ph
+        restPose[b.name] = {'rot' : rot,
                 'rotInv' : rotInv,
                 'hPos' : h,
-                'tPos' : t
+                'hPosRel' : h_rel,
+                'parentPos' : ph
         }
 
     if header.version in [0, 2, 3]:
@@ -299,10 +304,17 @@ def applyANM(header, boneList):
                     parOrientation = mathutils.Quaternion([1,0,0,0])
 
                 wantedPos = bonePositions[n]
-                restPos = restPose[n]['tPos']
-                poseBone.location = wantedPos  - restPos
+                restPos = restPose[n]['hPosRel']
+                rot = restPose[n]['rot']
+                newLoc = wantedPos - restPos
+                newLoc.rotate(rot)
+                poseBone.location = newLoc  #wantedPos - restPos
+
+                orient = (restPose[n]['rotInv'] * b.orientations[f].to_matrix() *
+                        restPose[n]['rot'])
+                poseBone.rotation_quaternion = orient
                 # poseBone.rotation_quaternion = parOrientation
-                poseBone.rotation_quaternion = boneOrientations[n]
+                # poseBone.rotation_quaternion = boneOrientations[n]
                 # armatureBone.tail = bPos
                 for dp in ["rotation_quaternion", "location"]:
                     pb[n].keyframe_insert(data_path=dp, frame=f)
