@@ -1,3 +1,8 @@
+The use of any models, particles, skeletons, or other work from League of Legends by Riot Games is subject to their legal terms <http://www.riotgames.com/legal-jibber-jabber>
+
+This addon itself is subject to the below GNU GPLv3 license.
+
+
 GNU GENERAL PUBLIC LICENSE
 
 Version 3, 29 June 2007
