@@ -34,6 +34,8 @@ class sknHeader():
         buf = sknFid.read(self.__size__)
         (self.magic, self.version, 
                 self.numObjects) = struct.unpack(self.__format__, buf)
+        print("SKN version: %s" % self.version)
+        print("numObjects: %s" % self.numObjects)
 
     def toFile(self, sknFid):
         buf = struct.pack(self.__format__, self.magic, self.version,
@@ -192,6 +194,7 @@ class scoObject():
 
 def importSKN(filepath):
     sknFid = open(filepath, 'rb')
+    print("Reading SKN: %s" % filepath)
     #filepath = path.split(file)[-1]
     #print(filepath)
     header = sknHeader()
@@ -351,7 +354,7 @@ def addDefaultWeights(boneList, sknVertices, armatureObj, meshObj):
 def exportSKN(meshObj, output_filepath, input_filepath, BASE_ON_IMPORT, VERSION):
     import bpy
 
-    if VERSION not in [1,2,4]:
+    if VERSION not in [1,2,4] and not BASE_ON_IMPORT:
         raise ValueError("Version %d not supported! Try versions 1, 2, or 4" % VERSION)
 
     #Go into object mode & select only the mesh
@@ -379,9 +382,7 @@ def exportSKN(meshObj, output_filepath, input_filepath, BASE_ON_IMPORT, VERSION)
         (import_header, import_mats, import_meta_data, import_indices,
         import_vertices) = importSKN(input_filepath)
         header = import_header
-        if VERSION != header.version:
-            raise ValueError("Version chosen to write is not the same as \
-                    version of file imported")
+        VERSION = header.version
         
         numMats = len(import_mats)
         if numMats > 1:

@@ -135,7 +135,7 @@ class sklBone():
         if version in [1,2]:
             fields = struct.unpack(self.__format__v12, 
                     sklFile.read(self.__size__v12))
-            self.name = bytes.decode(fields[0])
+            self.name = bytes.decode(fields[0]).rstrip('\0')
             self.parent, self.scale = fields[1:3]
             #Strip null \x00's from the name
 
@@ -210,7 +210,7 @@ def importSKL(filepath):
     
     #Wrap open in try block
     sklFid = open(filepath, 'rb')
-
+    print("Reading SKL: %s" % filepath)
     #Read the file header to get # of bones
     header.fromFile(sklFid)
     print("SKL version:%s" % header.version)
@@ -225,16 +225,15 @@ def importSKL(filepath):
         if header.version == 2:  # version 2 has a reordered bone list
             #Read in reordered bone assignments
             numBoneIDs = struct.unpack('<i', sklFid.read(4))[0]  # clue taken from LolViewer
+            print ("reordered list size: %i" % numBoneIDs)
             for i in range(0, numBoneIDs):
                 buf = sklFid.read(4)
                 if buf == b'':
                     break
                 else:
                     boneId = struct.unpack('<i', buf)[0]
-
-                print(buf,boneId)
                 reorderedBoneList.append(boneList[boneId].copy())
-            print(len(reorderedBoneList))
+            
     elif header.version == 0:
         # taken from c# code from LoLViewer
         for k in range(header.numBones):
@@ -261,7 +260,8 @@ def importSKL(filepath):
             end = name.index(b'\0')
             boneList[i].name = ''.join(
                     v.decode() for v in name[0:end])
-            if boneList[i].name.lower() in ['root', 'r_weapon', 'shield',
+            DEBUG_PRINT = False
+            if DEBUG_PRINT and boneList[i].name.lower() in ['root', 'r_weapon', 'shield',
                     'l_shield', 'r_shield', 'buffbone_cstm_shield_top',
                     'buffbone_glb_weapon_1', 'l_hip']:
                 bone = boneList[i]
@@ -287,7 +287,8 @@ def importSKL(filepath):
                     struct.calcsize('<h')))[0]
             reorderedBoneList.append(boneList[boneId].copy())
         print("end: %s" % sklFid.tell())
-
+    else:
+        raise ValueError("Version %i not supported" % header.version)
 
     sklFid.close()
     return header, boneList, reorderedBoneList
@@ -305,6 +306,10 @@ def buildSKL(boneList, version):
     #Remove the default bone
     bones.remove(bones[0])
     #import the bones
+
+    print(len(boneList))
+    # print("%s, p:%s" % (boneName, boneList[bone.parent].name if bone.parent > -1 else None))
+
     if version in [1,2]:
         for boneID, bone in enumerate(boneList):
             boneName = bone.name.rstrip('\x00')
@@ -338,7 +343,6 @@ def buildSKL(boneList, version):
                     parentBone.tail = newBone.head
                     # newBone.use_connect = True
 
-            print("%s, p:%s" % (boneName, boneList[bone.parent].name if bone.parent > -1 else None))
 
             # if newBone.length == 0:
             #     newBone.length = 10
@@ -351,13 +355,27 @@ def buildSKL(boneList, version):
         for bone in arm.edit_bones:
             if bone.length == 0:
                 bone.length = 1
-            if len(bone.children) == 0:
+            if len(bone.children) == 0:  # bones without children get aligned to parents?
                 bone.length = 10
-                #If the orphan bone has a parent
                 if bone.parent:
-                    bone.align_orientation(bone.parent)
+                    if bone.parent.tail != bone.head: # if parent isn't chained
+                                                      # directly to this bone
+                        bone.tail = bone.head         # then this is "end" pos
+                        bone.head = bone.parent.tail
+                    else:
+                        bone.align_orientation(bone.parent)
+            else:   # for bones w/ children, set tail to avg of all direct
+                    # children, or buffbone
+                numChildren = len(bone.children)
+                pos = mathutils.Vector([0,0,0])
+                for child in bone.children:
+                    if (child.name.isupper() or  # if buffbone, set pos to it
+                            child.name.lower().count('buffbone')):
+                        pos = child.head
+                        break
+                    pos += child.head/numChildren
+                bone.tail = pos
     elif version == 0:
-        print(len(boneList))
 
         for boneID, bone in enumerate(boneList):
             #algorithm here based off of above, and LolViewer code
@@ -374,7 +392,6 @@ def buildSKL(boneList, version):
             #     print("%s, id:%s\np:%s\nq:%s\ns:%s" % (bone.name, boneID, bone.position, bone.quat, bone.scale))
             #     print("c%s" % bone.ct)
             #     # print("E%s" % bone.extra)
-            print("%s, p:%s" % (boneName, boneList[bone.parent].name if bone.parent > -1 else None))
             newBone = arm.edit_bones.new(boneName)
             if boneParentID > -1:
                 boneParentName = boneList[boneParentID].name

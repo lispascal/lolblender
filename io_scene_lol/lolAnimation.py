@@ -97,6 +97,7 @@ class anmHeader():
         beginning = struct.unpack(self.__format__i, anmFile.read(self.__size__i))
         (self.id, self.version) = beginning
 
+        print("ANM Version: %d" % self.version)
         if self.version in [0, 2, 3]:  # versions 0-3
             rest = struct.unpack(self.__format__v023, anmFile.read(self.__size__v023))
             (self.magic, self.numBones, self.numFrames, self.playbackFPS) = rest
@@ -110,7 +111,8 @@ class anmHeader():
                     self.unknown, self.playbackFPS) = rest[0:6]
             if (rest[6] != 2 or rest[7] != 10 or rest[8] != 2 or rest[9] != 10 or 
                     rest[10] != .01 or rest[11] != 0.2):
-                print("ANM file headers unexpected values")
+                print("ANM file headers unexpected values: ")
+                print(rest[6:12])
             raise ValueError("Version %s ANM not supported" % self.version)
         elif self.version == 4:  # version 4
             rest = struct.unpack(self.__format__v4, anmFile.read(self.__size__v4))
@@ -189,17 +191,26 @@ class anmBone():
         if version in [0,2,3]:
             fields = struct.unpack(self.__format__f,
                     anmFile.read(self.__size__f))
-            # orientation = mathutils.Quaternion([-fields[3], fields[0],
-            #         fields[1], -fields[2]])
-            orientation = mathutils.Quaternion(fields[0:4])
+            orientation = mathutils.Quaternion([-fields[3], fields[0],
+                    fields[1], -fields[2]])
+            # orientation = mathutils.Quaternion(fields[0:4])
             position = mathutils.Vector(fields[4:7])
             position.z *= -1
-            self.orientations.append(orientation)
-            self.positions.append(position)
+            self.add_frame(position, orientation)
         else:
             raise ValueError("Unhandled Bone version number", version)
 
-            
+    def add_frame(self, position, orientation):
+        """Adds a position Vector and orientation Quaternion to this bone's
+        lists, representing a new frame."""
+        self.positions.append(position)
+        self.orientations.append(orientation)
+
+    def get_frame(self, frame_number):
+        """Returns the position Vector and orientation Quaternion of a bone
+        in a given frame."""
+        return self.positions[frame_number], self.orientations[frame_number]
+
     def toFile(self, anmFile, version):
         """Writes animation bone object to a binary file FID"""
         if version in [0,1,2,3]:
@@ -224,12 +235,12 @@ def importANM(filepath):
         for i in range(header.numBones):
             boneList.append(anmBone())
             boneList[i].metaDataFromFile(anmFid, header.version)
-            print("bone %s: %s" % (i, boneList[i].name))
+            # print("bone %s: %s" % (i, boneList[i].name))
             for j in range(header.numFrames):
                 # print(j)
                 boneList[i].frameDataFromFile(anmFid, header.version)
-            print("p:%s\no:%s" % (boneList[i].positions[0],
-                        boneList[i].orientations[0]))
+            # print("p:%s\no:%s" % (boneList[i].positions[0],
+            #             boneList[i].orientations[0]))
 
     elif header.version == 4:
         print("not supported yet")
@@ -260,9 +271,13 @@ def applyANM(header, boneList):
 
     restPose = {}
     for b in bs:
-        rot = b.matrix.to_4x4().decompose()[1]
-        rotInv = rot.inverted()
-        h = b.head_local
+        rot = b.matrix_local.decompose()[1]
+
+        # multiply below by desired translation in world coords to get new
+        # "location" for pose
+        rotInv = rot.inverted() 
+
+        h = b.head_local  # absolute coordinate
         if b.parent is not None:
             ph = b.parent.head_local
         else:
@@ -304,13 +319,14 @@ def applyANM(header, boneList):
                     parOrientation = mathutils.Quaternion([1,0,0,0])
 
                 wantedPos = bonePositions[n]
-                restPos = restPose[n]['hPosRel']
-                rot = restPose[n]['rot']
+                # restPos = restPose[n]['h']
+                restPos = poseBone.head
+                rot = restPose[n]['rotInv']
                 newLoc = wantedPos - restPos
                 newLoc.rotate(rot)
                 poseBone.location = newLoc  #wantedPos - restPos
 
-                orient = (restPose[n]['rotInv'] * b.orientations[f].to_matrix() *
+                orient = (restPose[n]['rotInv'] * b.orientations[f] *
                         restPose[n]['rot'])
                 poseBone.rotation_quaternion = orient
                 # poseBone.rotation_quaternion = parOrientation
@@ -328,3 +344,7 @@ def applyANM(header, boneList):
     # Once implemented, this code will probably follow a relatively simply
     # structure to bone creation. Althought it will be:
     # go by frame->insert key frame
+
+
+
+
