@@ -207,17 +207,15 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         except RuntimeError:
             pass
         bpy.ops.object.select_all(action='DESELECT')
-        #bpy.data.objects['lolMesh'].select = True
-        #bpy.ops.object.mode_set(mode='EDIT')
 
         img = bpy.data.images.load(DDS_FILEPATH)
-        img.filepath=DDS_FILEPATH
         img.source = 'FILE'
 
-        tex = bpy.data.textures.new('lolTexture', type='IMAGE')
+        img_name = DDS_FILE[:-4]  # remove .dds
+        tex = bpy.data.textures.new(img_name + '_texImage', type='IMAGE')
         tex.image = img
-        mat = bpy.data.materials.new(name=tex.name)
-
+        mat = bpy.data.materials.new(name=(img_name + '_mat'))
+        mat.use_shadeless = True
 
         mtex = mat.texture_slots.add()
         mtex.texture = tex
@@ -225,10 +223,6 @@ def import_char(MODEL_DIR="", SKN_FILE="", SKL_FILE="", DDS_FILE="",
         mtex.use_map_color_diffuse = True
 
         meshObj.data.materials.append(mat)
-
-        meshObj.data.uv_textures[0].data[0].image = img
-        # meshObj.data.uv_textures[0].data[0].use_image = True
-        # meshObj.data.uv_textures[0].data[0].blend_type = 'ALPHA'
 
 def import_animation(MODEL_DIR="", ANM_FILE=""):
     '''Import an Animation for a LoL character
