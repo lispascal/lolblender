@@ -29,6 +29,7 @@ class sknHeader():
         self.magic = 0
         self.version = 0
         self.numObjects = 0
+        self.endTab = [0,0,0]
 
     def fromFile(self, sknFid):
         buf = sknFid.read(self.__size__)
