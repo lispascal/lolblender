@@ -474,8 +474,9 @@ def exportSKN(meshObj, output_filepath, input_filepath, BASE_ON_IMPORT, VERSION)
                 sknVtx.weights[vtxIdx] = group.weight
 
         #Get UV's
-        sknVtx.texcoords[0] = vtxUvs[idx][0]
-        sknVtx.texcoords[1] = vtxUvs[idx][1]
+        if idx in vtxUvs:
+            sknVtx.texcoords[0] = vtxUvs[idx][0]
+            sknVtx.texcoords[1] = vtxUvs[idx][1]
 
         #writeout the vertex
         sknVtx.toFile(sknFid)
