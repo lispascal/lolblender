@@ -468,10 +468,14 @@ def exportSKN(meshObj, output_filepath, input_filepath, BASE_ON_IMPORT, VERSION)
 
         else:
             #If we have 4 or fewer bone/weight associations,
-            #just add them as is
+            #we have to ensure that the sum of the weights is 1
+            weightSum = 0.0
+            for group in vtx.groups:
+                weightSum += group.weight
+            
             for vtxIdx, group in enumerate(vtx.groups):
                 sknVtx.boneIndex[vtxIdx] = group.group
-                sknVtx.weights[vtxIdx] = group.weight
+                sknVtx.weights[vtxIdx] = group.weight / weightSum
 
         #Get UV's
         if idx in vtxUvs:
